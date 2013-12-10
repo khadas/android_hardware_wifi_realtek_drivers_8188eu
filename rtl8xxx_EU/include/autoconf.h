@@ -154,7 +154,7 @@
 	//#define CONFIG_DBG_P2P
 
 	#define CONFIG_P2P_PS
-	//#define CONFIG_P2P_IPS
+	#define CONFIG_P2P_IPS
 	#define P2P_OP_CHECK_SOCIAL_CH
 #endif
 
