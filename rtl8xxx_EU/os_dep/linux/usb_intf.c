@@ -1006,10 +1006,6 @@ static void rtw_suspend_wow(_adapter *padapter)
 		pwrpriv->wowlan_mode = _FALSE;
 	
 	rtw_cancel_all_timer(padapter);		
-	LeaveAllPowerSaveMode(padapter);
-
-	rtw_stop_cmd_thread(padapter);
-
 	
 	//padapter->net_closed = _TRUE;
 	//s1.
@@ -1113,7 +1109,9 @@ static int rtw_suspend(struct usb_interface *pusb_intf, pm_message_t message)
 	#endif
 	}
 
-	pwrpriv->bInSuspend = _TRUE;		
+	pwrpriv->bInSuspend = _TRUE;
+	LeaveAllPowerSaveMode(padapter);
+	rtw_stop_cmd_thread(padapter);			
 
 	_enter_pwrlock(&pwrpriv->lock);
 #ifdef CONFIG_WOWLAN

@@ -2877,7 +2877,6 @@ int rtw_suspend_common(_adapter *padapter)
 	
 	int ret = 0;
 	_func_enter_;
-	LeaveAllPowerSaveMode(padapter);
 	
 	rtw_suspend_free_assoc_resource(padapter);
 
