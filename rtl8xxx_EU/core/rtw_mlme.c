@@ -619,7 +619,6 @@ int rtw_is_same_ibss(_adapter *adapter, struct wlan_network *pnetwork)
 	
 }
 
-inline int is_same_ess(WLAN_BSSID_EX *a, WLAN_BSSID_EX *b);
 inline int is_same_ess(WLAN_BSSID_EX *a, WLAN_BSSID_EX *b)
 {
 	//RT_TRACE(_module_rtl871x_mlme_c_,_drv_err_,("(%s,%d)(%s,%d)\n",
@@ -675,6 +674,45 @@ _func_exit_;
 			((s_cap & WLAN_CAPABILITY_BSS) == 
 			(d_cap & WLAN_CAPABILITY_BSS)));
 	
+}
+
+struct wlan_network *_rtw_find_same_network(_queue *scanned_queue, struct wlan_network *network)
+{
+	_list *phead, *plist;
+	struct wlan_network *found = NULL;
+
+	phead = get_list_head(scanned_queue);
+	plist = get_next(phead);
+
+	while (plist != phead) {
+		found = LIST_CONTAINOR(plist, struct wlan_network ,list);
+
+		if (is_same_network(&network->network, &found->network, 0))
+			break;
+
+		plist = get_next(plist);
+	}
+
+	if(plist == phead)
+		found = NULL;
+exit:		
+	return found;
+}
+
+struct wlan_network *rtw_find_same_network(_queue *scanned_queue, struct wlan_network *network)
+{
+	_irqL irqL;
+	struct wlan_network *found = NULL;
+
+	if (scanned_queue == NULL || network == NULL)
+		goto exit;	
+
+	_enter_critical_bh(&scanned_queue->lock, &irqL);
+	found = _rtw_find_same_network(scanned_queue, network);
+	_exit_critical_bh(&scanned_queue->lock, &irqL);
+
+exit:
+	return found;
 }
 
 struct	wlan_network	* rtw_get_oldest_wlan_network(_queue *scanned_queue)
@@ -1959,7 +1997,7 @@ _func_enter_;
 			}
 			else
 			{
-				ptarget_wlan = rtw_find_network(&pmlmepriv->scanned_queue, pnetwork->network.MacAddress);
+				ptarget_wlan = _rtw_find_same_network(&pmlmepriv->scanned_queue, pnetwork);
 				if(check_fwstate(pmlmepriv, WIFI_STATION_STATE) == _TRUE){
 					if(ptarget_wlan)	ptarget_wlan->fixed = _TRUE;			
 				}
@@ -1972,7 +2010,7 @@ _func_enter_;
 			}
 			else
 			{			
-				RT_TRACE(_module_rtl871x_mlme_c_,_drv_err_,("Can't find ptarget_wlan when joinbss_event callback\n"));
+				DBG_871X_LEVEL(_drv_always_, "Can't find ptarget_wlan when joinbss_event callback\n");
 				_exit_critical_bh(&(pmlmepriv->scanned_queue.lock), &irqL);
 				goto ignore_joinbss_callback;
 			}
