@@ -379,6 +379,7 @@ struct mp_priv
 	u32 rx_pktcount_filter_out;
 	u32 rx_crcerrpktcount;
 	u32 rx_pktloss;
+	BOOLEAN  rx_bindicatePkt;
 
 	struct recv_stat rxstat;
 

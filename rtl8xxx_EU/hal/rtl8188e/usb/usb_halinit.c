@@ -4343,7 +4343,7 @@ GetHalDefVar8188EUsb(
 #endif	//(RATE_ADAPTIVE_SUPPORT == 1)
 			break;
 		default:
-			bResult = GetHalDefVar(Adapter, eVariable, pValue);
+			bResult = GetHalDefVar8188E(Adapter, eVariable, pValue);
 			break;
 	}
 

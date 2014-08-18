@@ -318,6 +318,16 @@ int proc_get_rx_info(struct seq_file *m, void *v)
 	return 0;
 }	
 
+int proc_get_wifi_spec(struct seq_file *m, void *v)
+{
+	struct net_device *dev = m->private;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+	struct registry_priv	*pregpriv = &padapter->registrypriv;
+	
+	DBG_871X_SEL_NL(m,"wifi_spec=%d\n",pregpriv->wifi_spec);
+	return 0;
+}
+
 static int proc_get_cam(struct seq_file *m, void *v)
 {
 	struct net_device *dev = m->private;
@@ -419,6 +429,7 @@ const struct rtw_proc_hdl adapter_proc_hdls [] = {
 	{"cam_cache", proc_get_cam_cache, NULL},
 	{"suspend_info", proc_get_suspend_resume_info, NULL},
 	{"rx_info", proc_get_rx_info,NULL},
+	{"wifi_spec",proc_get_wifi_spec,NULL},
 
 #ifdef CONFIG_LAYER2_ROAMING
 	{"roam_flags", proc_get_roam_flags, proc_set_roam_flags},

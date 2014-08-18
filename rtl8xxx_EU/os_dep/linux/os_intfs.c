@@ -1046,6 +1046,8 @@ struct dvobj_priv *devobj_init(void)
 
 	ATOMIC_SET(&pdvobj->disable_func, 0);
 
+	_rtw_spinlock_init(&pdvobj->cam_ctl.lock);
+
 	return pdvobj;
 
 }
@@ -1061,6 +1063,8 @@ void devobj_deinit(struct dvobj_priv *pdvobj)
 	_rtw_mutex_free(&pdvobj->h2c_fwcmd_mutex);
 	_rtw_mutex_free(&pdvobj->setch_mutex);
 	_rtw_mutex_free(&pdvobj->setbw_mutex);
+
+	_rtw_spinlock_free(&pdvobj->cam_ctl.lock);
 
 	rtw_mfree((u8*)pdvobj, sizeof(*pdvobj));
 }	

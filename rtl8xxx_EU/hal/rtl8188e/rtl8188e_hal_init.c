@@ -3836,7 +3836,7 @@ _func_enter_;
 		struct mlme_ext_info *mlmext_info = &adapter->mlmeextpriv.mlmext_info;
 		u16 input_b = 0, masked = 0, ioted = 0, BrateCfg = 0, RateIndex = 0;
 		u16 rrsr_2g_force_mask = (RRSR_11M|RRSR_5_5M|RRSR_1M);
-		u16 rrsr_2g_allow_mask = (RRSR_24M|RRSR_12M|RRSR_6M|RRSR_11M|RRSR_5_5M|RRSR_1M);
+		u16 rrsr_2g_allow_mask = (RRSR_24M|RRSR_12M|RRSR_6M|RRSR_11M|RRSR_5_5M|RRSR_2M|RRSR_1M);
 
 		HalSetBrateCfg(adapter, val, &BrateCfg);
 		input_b = BrateCfg;
@@ -3852,8 +3852,6 @@ _func_enter_;
 			if((BrateCfg & (RRSR_24M|RRSR_12M|RRSR_6M)) == 0)
 				BrateCfg |= RRSR_6M;
 		}
-		if (mlmext_info->assoc_AP_vendor == HT_IOT_PEER_ATHEROS)
-			BrateCfg |= RRSR_2M;
 		ioted = BrateCfg;
 
 		HalData->BasicRateSet = BrateCfg;
@@ -3952,6 +3950,67 @@ _func_enter_;
 		rtw_write8(adapter, REG_RESP_SIFS_OFDM+1, val[0]);
 	}
 		break;
+
+	case HW_VAR_MACID_SLEEP:
+	{
+		u32 reg_macid_sleep;
+		u8 bit_shift;
+		u8 id = *(u8*)val;
+		u32 val32;
+	
+		if (id < 32){
+			reg_macid_sleep = REG_MACID_PAUSE_0;
+			bit_shift = id;
+		} else if (id < 64) {
+			reg_macid_sleep = REG_MACID_PAUSE_1;
+			bit_shift = id-32;
+		} else {
+			rtw_warn_on(1);
+			break;
+		}
+	
+		val32 = rtw_read32(adapter, reg_macid_sleep);
+		DBG_8192C(FUNC_ADPT_FMT ": [HW_VAR_MACID_SLEEP] macid=%d, org reg_0x%03x=0x%08X\n",
+			FUNC_ADPT_ARG(adapter), id, reg_macid_sleep, val32);
+	
+		if (val32 & BIT(bit_shift))
+			break;
+	
+		val32 |= BIT(bit_shift);
+		rtw_write32(adapter, reg_macid_sleep, val32);
+	}
+		break;
+	
+	case HW_VAR_MACID_WAKEUP:
+	{
+		u32 reg_macid_sleep;
+		u8 bit_shift;
+		u8 id = *(u8*)val;
+		u32 val32;
+	
+		if (id < 32){
+			reg_macid_sleep = REG_MACID_PAUSE_0;
+			bit_shift = id;
+		} else if (id < 64) {
+			reg_macid_sleep = REG_MACID_PAUSE_1;
+			bit_shift = id-32;
+		} else {
+			rtw_warn_on(1);
+			break;
+		}
+	
+		val32 = rtw_read32(adapter, reg_macid_sleep);
+		DBG_8192C(FUNC_ADPT_FMT ": [HW_VAR_MACID_WAKEUP] macid=%d, org reg_0x%03x=0x%08X\n",
+			FUNC_ADPT_ARG(adapter), id, reg_macid_sleep, val32);
+	
+		if (!(val32 & BIT(bit_shift)))
+			break;
+	
+		val32 &= ~BIT(bit_shift);
+		rtw_write32(adapter, reg_macid_sleep, val32);
+	}
+		break;
+
 	default:
 		SetHwReg(adapter, variable, val);
 		break;
@@ -3976,5 +4035,29 @@ _func_enter_;
 	}
 
 _func_exit_;
+}
+
+u8
+GetHalDefVar8188E(
+	IN	PADAPTER				Adapter,
+	IN	HAL_DEF_VARIABLE		eVariable,
+	IN	PVOID					pValue
+	)
+{
+	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(Adapter);	
+	u8			bResult = _SUCCESS;
+
+	switch(eVariable)
+	{
+		case HAL_DEF_MACID_SLEEP:
+			*(u8*)pValue = _TRUE; // support macid sleep
+			break;
+
+		default:
+			bResult = GetHalDefVar(Adapter, eVariable, pValue);
+			break;
+	}
+
+	return bResult;
 }
 
