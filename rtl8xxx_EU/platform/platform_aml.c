@@ -26,11 +26,11 @@
 int platform_wifi_power_on(void)
 {
 	int ret = 0;
-    ret = wifi_power_control(1);
+	ret = wifi_power_control(1);
 	return ret;
 }
 
 void platform_wifi_power_off(void)
 {
-    wifi_power_control(0);
+	wifi_power_control(0);
 }
