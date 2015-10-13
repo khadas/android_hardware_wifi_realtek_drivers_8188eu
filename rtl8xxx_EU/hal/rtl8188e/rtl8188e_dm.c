@@ -347,10 +347,12 @@ static void Update_ODM_ComInfo_88E(PADAPTER	Adapter)
 		| ODM_BB_PWR_SAVE		
 		| ODM_RF_CALIBRATION
 		| ODM_RF_TX_PWR_TRACK
-#ifdef CONFIG_ODM_ADAPTIVITY
-		| ODM_BB_ADAPTIVITY
-#endif
 		;
+
+	if (rtw_odm_adaptivity_needed(Adapter) == _TRUE) {
+		rtw_odm_adaptivity_config_msg(RTW_DBGDUMP, Adapter);
+		pdmpriv->InitODMFlag |= ODM_BB_ADAPTIVITY;
+	}
 
 	if (!Adapter->registrypriv.qos_opt_enable) {
 		pdmpriv->InitODMFlag |= ODM_MAC_EDCA_TURBO;

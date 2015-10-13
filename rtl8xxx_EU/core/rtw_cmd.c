@@ -524,8 +524,6 @@ _next:
 
 		pcmdpriv->cmd_issued_cnt++;
 
-		pcmd->cmdsz = _RND4((pcmd->cmdsz));//_RND4
-
 		_rtw_memcpy(pcmdbuf, pcmd->parmbuf, pcmd->cmdsz);
 
 		if(pcmd->cmdcode < (sizeof(wlancmds) /sizeof(struct cmd_hdl)))
@@ -846,7 +844,7 @@ _func_enter_;
 #ifdef CONFIG_STA_MODE_SCAN_UNDER_AP_MODE
 		if((padapter->pbuddy_adapter->mlmeextpriv.mlmext_info.state&0x03) == WIFI_FW_AP_STATE)
 		{
-			if(IsSupported5G(padapter->registrypriv.wireless_mode)
+			if(IsSupported5G(padapter->registrypriv.wireless_mode) 
 				&& IsSupported24G(padapter->registrypriv.wireless_mode)) //dual band
 				mlme_set_scan_to_timer(pmlmepriv, CONC_SCANNING_TIMEOUT_DUAL_BAND);
 			else //single band
@@ -1345,6 +1343,7 @@ _func_enter_;
 			case Ndis802_11APMode:
 			case Ndis802_11AutoUnknown:
 			case Ndis802_11InfrastructureMax:
+			case Ndis802_11Monitor:
 				break;
 
 		}

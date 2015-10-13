@@ -89,6 +89,7 @@
 #define _HW_STATE_ADHOC_		0x01
 #define _HW_STATE_STATION_ 	0x02
 #define _HW_STATE_AP_			0x03
+#define _HW_STATE_MONITOR_ 0x04
 
 
 #define		_1M_RATE_	0
@@ -478,6 +479,7 @@ struct mlme_ext_info
 
 #if defined(CONFIG_STA_MODE_SCAN_UNDER_AP_MODE) || defined(CONFIG_ATMEL_RC_PATCH)
 	u8 scan_cnt;
+	u8 backop_cnt;
 #endif //CONFIG_STA_MODE_SCAN_UNDER_AP_MODE
 };
 
@@ -622,7 +624,7 @@ void change_band_update_ie(_adapter *padapter, WLAN_BSSID_EX *pnetwork);
 void Save_DM_Func_Flag(_adapter *padapter);
 void Restore_DM_Func_Flag(_adapter *padapter);
 void Switch_DM_Func(_adapter *padapter, u32 mode, u8 enable);
-
+void ctrl_dm_func_for_offchannel(_adapter *padapter, u32 mode);
 //void Set_NETYPE1_MSR(_adapter *padapter, u8 type);
 //void Set_NETYPE0_MSR(_adapter *padapter, u8 type);
 void Set_MSR(_adapter *padapter, u8 type);

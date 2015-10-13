@@ -20,10 +20,6 @@
 //***** temporarily flag *******
 #define CONFIG_SINGLE_IMG
 
-
-//p2p connection fix for android L
-#define CONFIG_RADIO_WORK
-
 //#define CONFIG_DISABLE_ODM
 //for FPGA VERIFICATION config
 #define RTL8188E_FPGA_TRUE_PHY_VERIFICATION 0
@@ -40,7 +36,7 @@
 
 #define PLATFORM_LINUX	
 
-#define CONFIG_IOCTL_CFG80211 
+//#define CONFIG_IOCTL_CFG80211 
 //#define CONFIG_IEEE80211W
 
 #if defined(CONFIG_PLATFORM_ACTIONS_ATM702X)
@@ -50,7 +46,7 @@
 #endif
 
 #ifdef CONFIG_IOCTL_CFG80211
-	#define RTW_USE_CFG80211_STA_EVENT /* Indecate new sta asoc through cfg80211_new_sta */
+	//#define RTW_USE_CFG80211_STA_EVENT /* Indecate new sta asoc through cfg80211_new_sta */
 	#define CONFIG_CFG80211_FORCE_COMPATIBLE_2_6_37_UNDER
 	//#define CONFIG_DEBUG_CFG80211 
 	//#define CONFIG_DRV_ISSUE_PROV_REQ // IOT FOR S2
@@ -111,7 +107,7 @@
 	#endif
 
 
-	#define CONFIG_CONCURRENT_MODE 
+	//#define CONFIG_CONCURRENT_MODE 
 	#ifdef CONFIG_CONCURRENT_MODE
 		//#define CONFIG_HWPORT_SWAP				//Port0->Sec , Port1 -> Pri
 		#define CONFIG_RUNTIME_PORT_SWITCH
@@ -155,7 +151,7 @@
 	//#define CONFIG_DBG_P2P
 
 	#define CONFIG_P2P_PS
-	#define CONFIG_P2P_IPS
+	//#define CONFIG_P2P_IPS
 	#define CONFIG_P2P_OP_CHK_SOCIAL_CH
 	#define CONFIG_CFG80211_ONECHANNEL_UNDER_CONCURRENT  //replace CONFIG_P2P_CHK_INVITE_CH_LIST flag
 	#define CONFIG_P2P_INVITE_IOT
@@ -224,7 +220,6 @@
 	#define CONFIG_USB_RX_AGGREGATION	
 #endif
 
-#define CONFIG_PREALLOC_RECV_SKB	
 //#define CONFIG_REDUCE_USB_TX_INT		// Trade-off: Improve performance, but may cause TX URBs blocked by USB Host/Bus driver on few platforms.
 //#define CONFIG_EASY_REPLACEMENT	
 
@@ -234,7 +229,12 @@
 //#define CONFIG_USE_USB_BUFFER_ALLOC_TX 	// Trade-off: For TX path, improve stability on some platforms, but may cause performance degrade on other platforms.
 //#define CONFIG_USE_USB_BUFFER_ALLOC_RX 	// For RX path
 #ifdef CONFIG_USE_USB_BUFFER_ALLOC_RX
-#undef CONFIG_PREALLOC_RECV_SKB
+
+#else
+	#define CONFIG_PREALLOC_RECV_SKB
+	#ifdef CONFIG_PREALLOC_RECV_SKB
+		#define CONFIG_FIX_NR_BULKIN_BUFFER /* only use PREALLOC_RECV_SKB buffer, don't alloc skb at runtime */
+	#endif
 #endif
 
 /* 
@@ -356,6 +356,8 @@
 #define RTL8192E_SUPPORT				0
 
 #define RTL8813A_SUPPORT				0
+#define RTL8195A_SUPPORT				0
+
 
 //#if (RTL8188E_SUPPORT==1)
 #define RATE_ADAPTIVE_SUPPORT 			1
@@ -378,9 +380,9 @@
 /*
  * Debug Related Config
  */
-#define DBG	0
+#define DBG	1
 
-//#define CONFIG_DEBUG /* DBG_871X, etc... */
+#define CONFIG_DEBUG /* DBG_871X, etc... */
 //#define CONFIG_DEBUG_RTL871X /* RT_TRACE, RT_PRINT_DATA, _func_enter_, _func_exit_ */
 
 #define CONFIG_PROC_DEBUG
