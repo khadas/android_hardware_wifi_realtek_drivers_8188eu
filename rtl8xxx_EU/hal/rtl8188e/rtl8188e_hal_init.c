@@ -962,7 +962,7 @@ s32 rtl8188e_FirmwareDownload(PADAPTER padapter, BOOLEAN  bUsedWoWLANFw)
 
 	tmp_fw_len = IS_VENDOR_8188E_I_CUT_SERIES(padapter) ? FW_8188E_SIZE_2 : FW_8188E_SIZE;
 
-	if (pFirmware->ulFwLength > tmp_fw_len) {
+	if ((pFirmware->ulFwLength - 32) > tmp_fw_len) {
 		rtStatus = _FAIL;
 		RTW_ERR("Firmware size:%u exceed %u\n", pFirmware->ulFwLength, tmp_fw_len);
 		goto exit;
@@ -2572,6 +2572,30 @@ void init_hal_spec_8188e(_adapter *adapter)
 			    ;
 }
 
+#ifdef CONFIG_RFKILL_POLL
+bool rtl8188e_gpio_radio_on_off_check(_adapter *adapter, u8 *valid)
+{
+	u32 tmp32;
+	bool ret;
+
+#ifdef CONFIG_PCI_HCI
+#if 1
+	*valid = 0;
+	return _FALSE; /* unblock */
+#else
+	tmp32  = rtw_read32(adapter, REG_GSSR);
+	ret = (tmp32 & BIT(31)) ? _FALSE : _TRUE;	/* Power down pin output value, low active */
+	*valid = 1;
+
+	return ret;
+#endif
+#else
+	*valid = 0;
+	return _FALSE; /* unblock */
+#endif
+}
+#endif
+
 void rtl8188e_init_default_value(_adapter *adapter)
 {
 	HAL_DATA_TYPE *hal_data = GET_HAL_DATA(adapter);
@@ -2640,6 +2664,9 @@ void rtl8188e_set_hal_ops(struct hal_ops *pHalFunc)
 
 #ifdef CONFIG_GPIO_API
         pHalFunc->hal_gpio_func_check = &rtl8188e_GpioFuncCheck;
+#endif
+#ifdef CONFIG_RFKILL_POLL
+	pHalFunc->hal_radio_onoff_check = rtl8188e_gpio_radio_on_off_check;
 #endif
 }
 
@@ -2899,7 +2926,6 @@ Hal_ReadPAType_8188E(
 	IN	BOOLEAN		AutoloadFail
 )
 {
-#ifdef CONFIG_8188E_HIGH_POWER
 	HAL_DATA_TYPE		*pHalData = GET_HAL_DATA(Adapter);
 	u8			PA_LNAType_2G = 0;
 
@@ -2969,7 +2995,6 @@ Hal_ReadPAType_8188E(
 #endif
 	}
 	RTW_INFO("pHalData->ExternalPA_2G = %d , pHalData->ExternalLNA_2G = %d\n",  pHalData->ExternalPA_2G, pHalData->ExternalLNA_2G);
-#endif
 }
 
 VOID
@@ -2979,7 +3004,6 @@ Hal_ReadAmplifierType_8188E(
 	IN	BOOLEAN		AutoloadFail
 )
 {
-#ifdef CONFIG_8188E_HIGH_POWER
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(Adapter);
 	u8	GLNA_type = 0;
 
@@ -3009,7 +3033,6 @@ Hal_ReadAmplifierType_8188E(
 		break;
 	}
 	RTW_INFO("pHalData->TypeGLNA is 0x%x\n", pHalData->TypeGLNA);
-#endif
 }
 
 VOID
@@ -3019,7 +3042,6 @@ Hal_ReadRFEType_8188E(
 	IN	BOOLEAN		AutoloadFail
 )
 {
-#ifdef CONFIG_8188E_HIGH_POWER
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(Adapter);
 	/* Keep the same flow as 8192EU to be extensible */
 	const u8 RFETypeMaxVal = 1, RFETypeMask = 0x1;
@@ -3057,7 +3079,6 @@ Hal_ReadRFEType_8188E(
 	}
 
 	RTW_INFO("pHalData->rfe_type is 0x%x\n", pHalData->rfe_type);
-#endif
 }
 
 void
@@ -3490,9 +3511,18 @@ static void hw_var_set_opmode(PADAPTER Adapter, u8 variable, u8 *val)
 			rtw_write8(Adapter, REG_BCNDMATIM, 0x02); /* 2ms		 */
 			rtw_write8(Adapter, REG_DRVERLYINT, 0x05);/* 5ms */
 			/* rtw_write8(Adapter, REG_BCN_MAX_ERR, 0xFF); */
-			rtw_write8(Adapter, REG_ATIMWND_1, 0x0a); /* 10ms for port1 */
+			rtw_write8(Adapter, REG_ATIMWND_1, 0x0c); /* 13ms for port1 */
 			rtw_write16(Adapter, REG_BCNTCFG, 0x00);
-			rtw_write16(Adapter, REG_TBTT_PROHIBIT, 0xff04);
+
+			/* TBTT setup time:128 us */
+			rtw_write8(Adapter, REG_TBTT_PROHIBIT, 0x04);
+
+			/*TBTT hold time :4ms 0x540[19:8]*/
+			rtw_write8(Adapter, REG_TBTT_PROHIBIT + 1,
+				TBTT_PROBIHIT_HOLD_TIME & 0xFF);
+			rtw_write8(Adapter, REG_TBTT_PROHIBIT + 2,
+				(rtw_read8(Adapter, REG_TBTT_PROHIBIT + 2) & 0xF0) | (TBTT_PROBIHIT_HOLD_TIME >> 8));
+
 			rtw_write16(Adapter, REG_TSFTR_SYN_OFFSET, 0x7fff);/* +32767 (~32ms) */
 
 			/* reset TSF2	 */
@@ -3623,9 +3653,18 @@ static void hw_var_set_opmode(PADAPTER Adapter, u8 variable, u8 *val)
 			rtw_write8(Adapter, REG_BCNDMATIM, 0x02); /* 2ms			 */
 			rtw_write8(Adapter, REG_DRVERLYINT, 0x05);/* 5ms */
 			/* rtw_write8(Adapter, REG_BCN_MAX_ERR, 0xFF); */
-			rtw_write8(Adapter, REG_ATIMWND, 0x0a); /* 10ms */
+			rtw_write8(Adapter, REG_ATIMWND, 0x0c); /* 13ms */
 			rtw_write16(Adapter, REG_BCNTCFG, 0x00);
-			rtw_write16(Adapter, REG_TBTT_PROHIBIT, 0xff04);
+
+			/* TBTT setup time:128 us */
+			rtw_write8(Adapter, REG_TBTT_PROHIBIT, 0x04);
+
+			/*TBTT hold time :4ms 0x540[19:8]*/
+			rtw_write8(Adapter, REG_TBTT_PROHIBIT + 1,
+				TBTT_PROBIHIT_HOLD_TIME & 0xFF);
+			rtw_write8(Adapter, REG_TBTT_PROHIBIT + 2,
+				(rtw_read8(Adapter, REG_TBTT_PROHIBIT + 2) & 0xF0) | (TBTT_PROBIHIT_HOLD_TIME >> 8));
+
 			rtw_write16(Adapter, REG_TSFTR_SYN_OFFSET, 0x7fff);/* +32767 (~32ms) */
 
 			/* reset TSF */

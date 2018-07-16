@@ -35,7 +35,7 @@ void rtl8188e_sreset_xmit_status_check(_adapter *padapter)
 	u32 txdma_status;
 
 	txdma_status = rtw_read32(padapter, REG_TXDMA_STATUS);
-	if (txdma_status != 0x00) {
+	if (txdma_status != 0x00 && txdma_status != 0xeaeaeaea) {
 		RTW_INFO("%s REG_TXDMA_STATUS:0x%08x\n", __FUNCTION__, txdma_status);
 		rtw_hal_sreset_reset(padapter);
 	}

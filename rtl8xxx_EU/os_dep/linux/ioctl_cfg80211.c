@@ -29,6 +29,7 @@
 #define STATION_INFO_TX_BITRATE		BIT(NL80211_STA_INFO_TX_BITRATE)
 #define STATION_INFO_RX_PACKETS		BIT(NL80211_STA_INFO_RX_PACKETS)
 #define STATION_INFO_TX_PACKETS		BIT(NL80211_STA_INFO_TX_PACKETS)
+#define STATION_INFO_TX_FAILED		BIT(NL80211_STA_INFO_TX_FAILED)
 #define STATION_INFO_ASSOC_REQ_IES	0
 #endif /* Linux kernel >= 4.0.0 */
 
@@ -89,7 +90,7 @@ static const u32 rtw_cipher_suites[] = {
 	}
 
 #define CHAN2G(_channel, _freq, _flags) {			\
-		.band			= IEEE80211_BAND_2GHZ,		\
+		.band			= NL80211_BAND_2GHZ,		\
 		.center_freq		= (_freq),			\
 		.hw_value		= (_channel),			\
 		.flags			= (_flags),			\
@@ -98,7 +99,7 @@ static const u32 rtw_cipher_suites[] = {
 	}
 
 #define CHAN5G(_channel, _flags) {				\
-		.band			= IEEE80211_BAND_5GHZ,		\
+		.band			= NL80211_BAND_5GHZ,		\
 		.center_freq		= 5000 + (5 * (_channel)),	\
 		.hw_value		= (_channel),			\
 		.flags			= (_flags),			\
@@ -215,16 +216,16 @@ void rtw_5g_rates_init(struct ieee80211_rate *rates)
 }
 
 struct ieee80211_supported_band *rtw_spt_band_alloc(
-	enum ieee80211_band band
+	enum nl80211_band band
 )
 {
 	struct ieee80211_supported_band *spt_band = NULL;
 	int n_channels, n_bitrates;
 
-	if (band == IEEE80211_BAND_2GHZ) {
+	if (band == NL80211_BAND_2GHZ) {
 		n_channels = RTW_2G_CHANNELS_NUM;
 		n_bitrates = RTW_G_RATES_NUM;
-	} else if (band == IEEE80211_BAND_5GHZ) {
+	} else if (band == NL80211_BAND_5GHZ) {
 		n_channels = RTW_5G_CHANNELS_NUM;
 		n_bitrates = RTW_A_RATES_NUM;
 	} else
@@ -244,10 +245,10 @@ struct ieee80211_supported_band *rtw_spt_band_alloc(
 	spt_band->n_channels = n_channels;
 	spt_band->n_bitrates = n_bitrates;
 
-	if (band == IEEE80211_BAND_2GHZ) {
+	if (band == NL80211_BAND_2GHZ) {
 		rtw_2g_channels_init(spt_band->channels);
 		rtw_2g_rates_init(spt_band->bitrates);
-	} else if (band == IEEE80211_BAND_5GHZ) {
+	} else if (band == NL80211_BAND_5GHZ) {
 		rtw_5g_channels_init(spt_band->channels);
 		rtw_5g_rates_init(spt_band->bitrates);
 	}
@@ -266,11 +267,19 @@ void rtw_spt_band_free(struct ieee80211_supported_band *spt_band)
 	if (!spt_band)
 		return;
 
+#if (KERNEL_VERSION(4, 7, 0) <= LINUX_VERSION_CODE)
+	if (spt_band->band == NL80211_BAND_2GHZ) {
+#else
 	if (spt_band->band == IEEE80211_BAND_2GHZ) {
+#endif
 		size = sizeof(struct ieee80211_supported_band)
 			+ sizeof(struct ieee80211_channel) * RTW_2G_CHANNELS_NUM
 			+ sizeof(struct ieee80211_rate) * RTW_G_RATES_NUM;
+#if (KERNEL_VERSION(4, 7, 0) <= LINUX_VERSION_CODE)
+	} else if (spt_band->band == NL80211_BAND_5GHZ) {
+#else
 	} else if (spt_band->band == IEEE80211_BAND_5GHZ) {
+#endif
 		size = sizeof(struct ieee80211_supported_band)
 			+ sizeof(struct ieee80211_channel) * RTW_5G_CHANNELS_NUM
 			+ sizeof(struct ieee80211_rate) * RTW_A_RATES_NUM;
@@ -1249,6 +1258,9 @@ static int rtw_cfg80211_set_encryption(struct net_device *dev, struct ieee_param
 						_rtw_memcpy(padapter->securitypriv.dot118021XGrptxmickey[param->u.crypt.idx].skey, &(param->u.crypt.key[16]), 8);
 						_rtw_memcpy(padapter->securitypriv.dot118021XGrprxmickey[param->u.crypt.idx].skey, &(param->u.crypt.key[24]), 8);
 						padapter->securitypriv.binstallGrpkey = _TRUE;
+						if (param->u.crypt.idx < 4)
+							_rtw_memcpy(padapter->securitypriv.iv_seq[param->u.crypt.idx], param->u.crypt.seq, 8);
+
 						/* DEBUG_ERR((" param->u.crypt.key_len=%d\n", param->u.crypt.key_len)); */
 						RTW_INFO(" ~~~~set sta key:groupkey\n");
 
@@ -1693,6 +1705,9 @@ static int cfg80211_rtw_get_station(struct wiphy *wiphy,
 		sinfo->filled |= STATION_INFO_TX_PACKETS;
 		sinfo->tx_packets = psta->sta_stats.tx_pkts;
 
+        sinfo->filled |= STATION_INFO_TX_FAILED;
+        sinfo->tx_failed = psta->sta_stats.tx_fail_cnt;
+
 	}
 
 	/* for Ad-Hoc/AP mode */
@@ -1874,9 +1889,14 @@ void rtw_cfg80211_indicate_scan_done(_adapter *adapter, bool aborted)
 {
 	struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(adapter);
 	_irqL	irqL;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
-    struct cfg80211_scan_info info;
+
+#if (KERNEL_VERSION(4, 7, 0) <= LINUX_VERSION_CODE)
+	struct cfg80211_scan_info info;
+
+	memset(&info, 0, sizeof(info));
+	info.aborted = aborted;
 #endif
+
 	_enter_critical_bh(&pwdev_priv->scan_req_lock, &irqL);
 	if (pwdev_priv->scan_request != NULL) {
 		#ifdef CONFIG_DEBUG_CFG80211
@@ -1887,14 +1907,11 @@ void rtw_cfg80211_indicate_scan_done(_adapter *adapter, bool aborted)
 		if (pwdev_priv->scan_request->wiphy != pwdev_priv->rtw_wdev->wiphy)
 			RTW_INFO("error wiphy compare\n");
 		else
-		{
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
-			info.aborted = aborted;
+#if (KERNEL_VERSION(4, 7, 0) <= LINUX_VERSION_CODE)
 			cfg80211_scan_done(pwdev_priv->scan_request, &info);
 #else
 			cfg80211_scan_done(pwdev_priv->scan_request, aborted);
 #endif
-		}
 
 		pwdev_priv->scan_request = NULL;
 	} else {
@@ -2474,8 +2491,18 @@ static int cfg80211_rtw_scan(struct wiphy *wiphy
 
 check_need_indicate_scan_done:
 	if (_TRUE == need_indicate_scan_done) {
+#if (KERNEL_VERSION(4, 7, 0) <= LINUX_VERSION_CODE)
+		struct cfg80211_scan_info info;
+
+		memset(&info, 0, sizeof(info));
+		info.aborted = 0;
+#endif
 		_rtw_cfg80211_surveydone_event_callback(padapter, request);
+#if (KERNEL_VERSION(4, 7, 0) <= LINUX_VERSION_CODE)
+		cfg80211_scan_done(request, &info);
+#else
 		cfg80211_scan_done(request, 0);
+#endif
 	}
 
 cancel_ps_deny:
@@ -3870,6 +3897,8 @@ static int
 	_adapter *padapter;
 	struct dvobj_priv *dvobj = wiphy_to_dvobj(wiphy);
 
+	rtw_set_rtnl_lock_holder(dvobj, current);
+
 	RTW_INFO(FUNC_WIPHY_FMT" name:%s, type:%d\n", FUNC_WIPHY_ARG(wiphy), name, type);
 
 	switch (type) {
@@ -3926,6 +3955,8 @@ static int
 	else
 		RTW_INFO(FUNC_WIPHY_FMT" wdev:%p, ret:%d\n", FUNC_WIPHY_ARG(wiphy), wdev, ret);
 
+	rtw_set_rtnl_lock_holder(dvobj, NULL);
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
 	return wdev ? wdev : ERR_PTR(ret);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 38)) || defined(COMPAT_KERNEL_RELEASE)
@@ -3947,8 +3978,11 @@ static int cfg80211_rtw_del_virtual_intf(struct wiphy *wiphy,
 	struct net_device *ndev = wdev_to_ndev(wdev);
 #endif
 	int ret = 0;
+	struct dvobj_priv *dvobj = wiphy_to_dvobj(wiphy);
 	_adapter *adapter;
 	struct rtw_wdev_priv *pwdev_priv;
+
+	rtw_set_rtnl_lock_holder(dvobj, current);
 
 	if (ndev) {
 		adapter = (_adapter *)rtw_netdev_priv(ndev);
@@ -3980,6 +4014,7 @@ static int cfg80211_rtw_del_virtual_intf(struct wiphy *wiphy,
 	}
 
 exit:
+	rtw_set_rtnl_lock_holder(dvobj, NULL);
 	return ret;
 }
 
@@ -5373,8 +5408,9 @@ exit:
 
 void rtw_pd_iface_free(struct wiphy *wiphy)
 {
+	struct dvobj_priv *dvobj = wiphy_to_dvobj(wiphy);
 	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
-	int rtnl_locked;
+	u8 rtnl_lock_needed;
 
 	if (!wiphy_data->pd_wdev)
 		goto exit;
@@ -5383,11 +5419,11 @@ void rtw_pd_iface_free(struct wiphy *wiphy)
 		, FUNC_WIPHY_ARG(wiphy), wiphy_data->pd_wdev
 		, MAC_ARG(wdev_address(wiphy_data->pd_wdev)));
 
-	rtnl_locked = rtnl_is_locked();
-	if (!rtnl_locked)
+	rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
+	if (rtnl_lock_needed)
 		rtnl_lock();
 	cfg80211_unregister_wdev(wiphy_data->pd_wdev);
-	if (!rtnl_locked)
+	if (rtnl_lock_needed)
 		rtnl_unlock();
 
 	rtw_mfree((u8 *)wiphy_data->pd_wdev, sizeof(struct wireless_dev));
@@ -6482,7 +6518,7 @@ int rtw_cfg80211_set_mgnt_wpsp2pie(struct net_device *net, char *buf, int len,
 
 }
 
-static void rtw_cfg80211_init_ht_capab_ex(_adapter *padapter, struct ieee80211_sta_ht_cap *ht_cap, enum ieee80211_band band, u8 rf_type)
+static void rtw_cfg80211_init_ht_capab_ex(_adapter *padapter, struct ieee80211_sta_ht_cap *ht_cap, enum nl80211_band band, u8 rf_type)
 {
 	struct registry_priv *pregistrypriv = &padapter->registrypriv;
 	struct mlme_priv	*pmlmepriv = &padapter->mlmepriv;
@@ -6502,9 +6538,9 @@ static void rtw_cfg80211_init_ht_capab_ex(_adapter *padapter, struct ieee80211_s
 	/* RX STBC */
 	if (TEST_FLAG(phtpriv->stbc_cap, STBC_HT_ENABLE_RX)) {
 		/*rtw_rx_stbc 0: disable, bit(0):enable 2.4g, bit(1):enable 5g*/
-		if (IEEE80211_BAND_2GHZ == band)
+		if (band == NL80211_BAND_2GHZ)
 			stbc_rx_enable = (pregistrypriv->rx_stbc & BIT(0)) ? _TRUE : _FALSE;
-		if (IEEE80211_BAND_5GHZ == band)
+		if (band == NL80211_BAND_5GHZ)
 			stbc_rx_enable = (pregistrypriv->rx_stbc & BIT(1)) ? _TRUE : _FALSE;
 
 		if (stbc_rx_enable) {
@@ -6530,7 +6566,7 @@ static void rtw_cfg80211_init_ht_capab_ex(_adapter *padapter, struct ieee80211_s
 	}
 }
 
-static void rtw_cfg80211_init_ht_capab(_adapter *padapter, struct ieee80211_sta_ht_cap *ht_cap, enum ieee80211_band band, u8 rf_type)
+static void rtw_cfg80211_init_ht_capab(_adapter *padapter, struct ieee80211_sta_ht_cap *ht_cap, enum nl80211_band band, u8 rf_type)
 {
 	struct hal_spec_t *hal_spec = GET_HAL_SPEC(padapter);
 	u8 rx_nss = 0;
@@ -6605,15 +6641,15 @@ void rtw_cfg80211_init_wiphy(_adapter *padapter)
 	RTW_INFO("%s:rf_type=%d\n", __func__, rf_type);
 
 	if (IsSupported24G(padapter->registrypriv.wireless_mode)) {
-		bands = wiphy->bands[IEEE80211_BAND_2GHZ];
+		bands = wiphy->bands[NL80211_BAND_2GHZ];
 		if (bands)
-			rtw_cfg80211_init_ht_capab(padapter, &bands->ht_cap, IEEE80211_BAND_2GHZ, rf_type);
+			rtw_cfg80211_init_ht_capab(padapter, &bands->ht_cap, NL80211_BAND_2GHZ, rf_type);
 	}
 #ifdef CONFIG_IEEE80211_BAND_5GHZ
 	if (is_supported_5g(padapter->registrypriv.wireless_mode)) {
-		bands = wiphy->bands[IEEE80211_BAND_5GHZ];
+		bands = wiphy->bands[NL80211_BAND_5GHZ];
 		if (bands)
-			rtw_cfg80211_init_ht_capab(padapter, &bands->ht_cap, IEEE80211_BAND_5GHZ, rf_type);
+			rtw_cfg80211_init_ht_capab(padapter, &bands->ht_cap, NL80211_BAND_5GHZ, rf_type);
 	}
 #endif
 	/* init regulary domain */
@@ -6721,11 +6757,11 @@ static void rtw_cfg80211_preinit_wiphy(_adapter *adapter, struct wiphy *wiphy)
 	wiphy->n_cipher_suites = ARRAY_SIZE(rtw_cipher_suites);
 
 	if (IsSupported24G(adapter->registrypriv.wireless_mode))
-		wiphy->bands[IEEE80211_BAND_2GHZ] = rtw_spt_band_alloc(IEEE80211_BAND_2GHZ);
+		wiphy->bands[NL80211_BAND_2GHZ] = rtw_spt_band_alloc(NL80211_BAND_2GHZ);
 
 #ifdef CONFIG_IEEE80211_BAND_5GHZ
 	if (is_supported_5g(adapter->registrypriv.wireless_mode))
-		wiphy->bands[IEEE80211_BAND_5GHZ] = rtw_spt_band_alloc(IEEE80211_BAND_5GHZ);
+		wiphy->bands[NL80211_BAND_5GHZ] = rtw_spt_band_alloc(NL80211_BAND_5GHZ);
 #endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 38) && LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0))
@@ -6771,6 +6807,40 @@ static void rtw_cfg80211_preinit_wiphy(_adapter *adapter, struct wiphy *wiphy)
 	/* wiphy->flags |= WIPHY_FLAG_SUPPORTS_FW_ROAM; */
 #endif
 }
+
+#ifdef CONFIG_RFKILL_POLL
+void rtw_cfg80211_init_rfkill(struct wiphy *wiphy)
+{
+	wiphy_rfkill_set_hw_state(wiphy, 0);
+	wiphy_rfkill_start_polling(wiphy);
+}
+
+void rtw_cfg80211_deinit_rfkill(struct wiphy *wiphy)
+{
+	wiphy_rfkill_stop_polling(wiphy);
+}
+
+static void cfg80211_rtw_rfkill_poll(struct wiphy *wiphy)
+{
+	_adapter *padapter = NULL;
+	bool blocked = _FALSE;
+	u8 valid = 0;
+
+	padapter = wiphy_to_adapter(wiphy);
+
+	if (adapter_to_dvobj(padapter)->processing_dev_remove == _TRUE) {
+		/*RTW_INFO("cfg80211_rtw_rfkill_poll: device is removed!\n");*/
+		return;
+	}
+
+	blocked = rtw_hal_rfkill_poll(padapter, &valid);
+	/*RTW_INFO("cfg80211_rtw_rfkill_poll: valid=%d, blocked=%d\n",
+			valid, blocked);*/
+
+	if (valid)
+		wiphy_rfkill_set_hw_state(wiphy, blocked);
+}
+#endif
 
 static struct cfg80211_ops rtw_cfg80211_ops = {
 	.change_virtual_intf = cfg80211_rtw_change_iface,
@@ -6858,6 +6928,9 @@ static struct cfg80211_ops rtw_cfg80211_ops = {
 	.sched_scan_start = cfg80211_rtw_sched_scan_start,
 	.sched_scan_stop = cfg80211_rtw_sched_scan_stop,
 #endif /* CONFIG_PNO_SUPPORT */
+#ifdef CONFIG_RFKILL_POLL
+	.rfkill_poll = cfg80211_rtw_rfkill_poll,
+#endif
 };
 
 struct wiphy *rtw_wiphy_alloc(_adapter *padapter, struct device *dev)
@@ -6895,13 +6968,13 @@ void rtw_wiphy_free(struct wiphy *wiphy)
 
 	RTW_INFO(FUNC_WIPHY_FMT"\n", FUNC_WIPHY_ARG(wiphy));
 
-	if (wiphy->bands[IEEE80211_BAND_2GHZ]) {
-		rtw_spt_band_free(wiphy->bands[IEEE80211_BAND_2GHZ]);
-		wiphy->bands[IEEE80211_BAND_2GHZ] = NULL;
+	if (wiphy->bands[NL80211_BAND_2GHZ]) {
+		rtw_spt_band_free(wiphy->bands[NL80211_BAND_2GHZ]);
+		wiphy->bands[NL80211_BAND_2GHZ] = NULL;
 	}
-	if (wiphy->bands[IEEE80211_BAND_5GHZ]) {
-		rtw_spt_band_free(wiphy->bands[IEEE80211_BAND_5GHZ]);
-		wiphy->bands[IEEE80211_BAND_5GHZ] = NULL;
+	if (wiphy->bands[NL80211_BAND_5GHZ]) {
+		rtw_spt_band_free(wiphy->bands[NL80211_BAND_5GHZ]);
+		wiphy->bands[NL80211_BAND_5GHZ] = NULL;
 	}
 
 	wiphy_free(wiphy);
@@ -7095,6 +7168,10 @@ int rtw_cfg80211_ndev_res_register(_adapter *adapter)
 		RTW_INFO("%s rtw_wiphy_register fail for if%d\n", __func__, (adapter->iface_id + 1));
 		goto exit;
 	}
+
+#ifdef CONFIG_RFKILL_POLL
+	rtw_cfg80211_init_rfkill(adapter_to_wiphy(adapter));
+#endif
 #endif
 
 	ret = _SUCCESS;
@@ -7144,6 +7221,10 @@ int rtw_cfg80211_dev_res_register(struct dvobj_priv *dvobj)
 #if defined(RTW_SINGLE_WIPHY)
 	if (rtw_wiphy_register(dvobj_to_wiphy(dvobj)) != 0)
 		goto exit;
+
+#ifdef CONFIG_RFKILL_POLL
+	rtw_cfg80211_init_rfkill(dvobj_to_wiphy(dvobj));
+#endif
 #endif
 
 	ret = _SUCCESS;
@@ -7155,6 +7236,9 @@ exit:
 void rtw_cfg80211_dev_res_unregister(struct dvobj_priv *dvobj)
 {
 #if defined(RTW_SINGLE_WIPHY)
+#ifdef CONFIG_RFKILL_POLL
+	rtw_cfg80211_deinit_rfkill(dvobj_to_wiphy(dvobj));
+#endif
 	rtw_wiphy_unregister(dvobj_to_wiphy(dvobj));
 #endif
 }

@@ -2662,6 +2662,9 @@ static void update_bcn_wps_ie(_adapter *padapter)
 		if (sr) {
 			set_fwstate(pmlmepriv, WIFI_UNDER_WPS);
 			RTW_INFO("%s, set WIFI_UNDER_WPS\n", __func__);
+		} else {
+			clr_fwstate(pmlmepriv, WIFI_UNDER_WPS);
+			RTW_INFO("%s, clr WIFI_UNDER_WPS\n", __func__);
 		}
 	}
 #endif

@@ -134,6 +134,9 @@ void rtw_ndev_notifier_unregister(void);
 	#include "../os_dep/linux/ioctl_cfg80211.h"
 #endif /* CONFIG_IOCTL_CFG80211 */
 
+u8 rtw_rtnl_lock_needed(struct dvobj_priv *dvobj);
+void rtw_set_rtnl_lock_holder(struct dvobj_priv *dvobj, _thread_hdl_ thd_hdl);
+
 #endif /* PLATFORM_LINUX */
 
 

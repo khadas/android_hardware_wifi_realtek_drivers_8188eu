@@ -902,6 +902,17 @@ static void update_attrib_phy_info(_adapter *padapter, struct pkt_attrib *pattri
 		pattrib->ampdu_spacing = padapter->driver_ampdu_spacing;
 	else
 		pattrib->ampdu_spacing = psta->htpriv.rx_ampdu_min_spacing;
+
+	/* check if enable ampdu */
+	if (pattrib->ht_en && psta->htpriv.ampdu_enable) {
+		if (psta->htpriv.agg_enable_bitmap & BIT(pattrib->priority)) {
+			pattrib->ampdu_en = _TRUE;
+			if (psta->htpriv.tx_amsdu_enable == _TRUE)
+				pattrib->amsdu_ampdu_en = _TRUE;
+			else
+				pattrib->amsdu_ampdu_en = _FALSE;
+		}
+	}
 #endif /* CONFIG_80211N_HT */
 	/* if(pattrib->ht_en && psta->htpriv.ampdu_enable) */
 	/* { */
@@ -1771,12 +1782,13 @@ s32 rtw_make_wlanhdr(_adapter *padapter , u8 *hdr, struct pkt_attrib *pattrib)
 				SetSeqNum(hdr, pattrib->seqnum);
 
 #ifdef CONFIG_80211N_HT
+#if 0 /* move into update_attrib_phy_info(). */
 				/* check if enable ampdu */
 				if (pattrib->ht_en && psta->htpriv.ampdu_enable) {
 					if (psta->htpriv.agg_enable_bitmap & BIT(pattrib->priority))
 						pattrib->ampdu_en = _TRUE;
 				}
-
+#endif
 				/* re-check if enable ampdu by BA_starting_seqctrl */
 				if (pattrib->ampdu_en == _TRUE) {
 					u16 tx_seq;
@@ -2165,7 +2177,7 @@ u32 rtw_calculate_wlan_pkt_size_by_attribue(struct pkt_attrib *pattrib)
 s32 check_amsdu(struct xmit_frame *pxmitframe)
 {
 	struct pkt_attrib *pattrib;
-	int ret = _TRUE;
+	s32 ret = _TRUE;
 
 	if (!pxmitframe)
 		ret = _FALSE;
@@ -2192,6 +2204,28 @@ s32 check_amsdu(struct xmit_frame *pxmitframe)
 	return ret;
 }
 
+s32 check_amsdu_tx_support(_adapter *padapter)
+{
+	struct dvobj_priv *pdvobjpriv;
+	int tx_amsdu;
+	int tx_amsdu_rate;
+	int current_tx_rate;
+	s32 ret = _FALSE;
+
+	pdvobjpriv = adapter_to_dvobj(padapter);
+	tx_amsdu = padapter->tx_amsdu;
+	tx_amsdu_rate = padapter->tx_amsdu_rate;
+	current_tx_rate = pdvobjpriv->traffic_stat.cur_tx_tp;
+
+	if (tx_amsdu == 1)
+		ret = _TRUE;
+	else if (tx_amsdu == 2 && (tx_amsdu_rate == 0 || current_tx_rate > tx_amsdu_rate))
+		ret = _TRUE;
+	else
+		ret = _FALSE;
+
+	return ret;
+}
 
 s32 rtw_xmitframe_coalesce_amsdu(_adapter *padapter, struct xmit_frame *pxmitframe, struct xmit_frame *pxmitframe_queue)
 {

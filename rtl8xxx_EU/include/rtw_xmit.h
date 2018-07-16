@@ -158,6 +158,18 @@
 		dot11txpn.val = dot11txpn.val == 0xffffffffffffULL ? 0 : (dot11txpn.val+1);\
 	} while (0)
 
+/* Check if AMPDU Tx is supported or not. If it is supported,
+* it need to check "amsdu in ampdu" is supported or not.
+* (ampdu_en, amsdu_ampdu_en) =
+* (0, x) : AMPDU is not enable, but AMSDU is valid to send.
+* (1, 0) : AMPDU is enable, AMSDU in AMPDU is not enable. So, AMSDU is not valid to send.
+* (1, 1) : AMPDU and AMSDU in AMPDU are enable. So, AMSDU is valid to send.
+*/
+#define IS_AMSDU_AMPDU_NOT_VALID(pattrib)\
+	 ((pattrib->ampdu_en == _TRUE) && (pattrib->amsdu_ampdu_en == _FALSE))
+
+#define IS_AMSDU_AMPDU_VALID(pattrib)\
+	 !((pattrib->ampdu_en == _TRUE) && (pattrib->amsdu_ampdu_en == _FALSE))
 
 #define HWXMIT_ENTRY	4
 
@@ -413,6 +425,7 @@ struct pkt_attrib {
 	u8	ampdu_en;/* tx ampdu enable */
 	u8	ampdu_spacing; /* ampdu_min_spacing for peer sta's rx */
 	u8	amsdu;
+	u8	amsdu_ampdu_en;/* tx amsdu in ampdu enable */
 	u8	mdata;/* more data bit */
 	u8	pctrl;/* per packet txdesc control enable */
 	u8	triggered;/* for ap mode handling Power Saving sta */
@@ -958,7 +971,8 @@ extern void rtw_amsdu_set_timer(_adapter *padapter, u8 priority);
 extern void rtw_amsdu_cancel_timer(_adapter *padapter, u8 priority);
 
 extern s32 rtw_xmitframe_coalesce_amsdu(_adapter *padapter, struct xmit_frame *pxmitframe, struct xmit_frame *pxmitframe_queue);	
-extern int check_amsdu(struct xmit_frame *pxmitframe);
+extern s32 check_amsdu(struct xmit_frame *pxmitframe);
+extern s32 check_amsdu_tx_support(_adapter *padapter);
 extern struct xmit_frame *rtw_get_xframe(struct xmit_priv *pxmitpriv, int *num_frame);
 #endif
 

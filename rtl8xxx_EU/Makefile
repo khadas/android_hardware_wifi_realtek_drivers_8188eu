@@ -93,6 +93,7 @@ CONFIG_MP_VHT_HW_TX_MODE = n
 ###################### Platform Related #######################
 CONFIG_PLATFORM_I386_PC = y
 CONFIG_PLATFORM_ANDROID_X86 = n
+CONFIG_PLATFORM_ANDROID_X86_N70 = n
 CONFIG_PLATFORM_ANDROID_INTEL_X86 = n
 CONFIG_PLATFORM_JB_X86 = n
 CONFIG_PLATFORM_ARM_S3C2K4 = n
@@ -147,6 +148,10 @@ CONFIG_PLATFORM_NV_TK1 = n
 ###############################################################
 
 CONFIG_DRVEXT_MODULE = n
+
+ifeq ($(CONFIG_PLATFORM_ANDROID_X86_N70), y)
+export TopDIR := $(shell pwd)/../../../../../../kernel/drivers/net/wireless/rtl8188ee/
+endif
 
 export TopDIR ?= $(shell pwd)
 
@@ -1179,6 +1184,21 @@ KSRC := /media/DATA-2/android-x86/ics-x86_20120130/out/target/product/generic_x8
 MODULE_NAME :=wlan
 endif
 
+ifeq ($(CONFIG_PLATFORM_ANDROID_X86_N70), y)
+EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN
+EXTRA_CFLAGS += -DCONFIG_CONCURRENT_MODE
+EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT
+EXTRA_CFLAGS += -DCONFIG_RADIO_WORK
+EXTRA_CFLAGS += -DCONFIG_PLATFORM_ANDROID
+ARCH := x86
+#CROSS_COMPILE := /work/android-x86/android-x86/prebuilts/gcc/linux-x86/x86/i686-linux-android-4.7/bin/i686-linux-android-
+CROSS_COMPILE := /home/work/android-N/prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9/bin/x86_64-linux-android-
+#CROSS_COMPILE :=          /work/78/android-x86/prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9/bin/x86_64-linux-android-
+KSRC := /home/work/android-N/out/target/product/x86/obj/kernel/
+#KSRC :=          /work/78/android-x86/out/target/product/x86/obj/kernel/
+MODULE_NAME :=wlan-8188ee
+endif
+
 ifeq ($(CONFIG_PLATFORM_ANDROID_INTEL_X86), y)
 EXTRA_CFLAGS += -DCONFIG_PLATFORM_ANDROID_INTEL_X86
 EXTRA_CFLAGS += -DCONFIG_PLATFORM_INTEL_BYT
@@ -1745,6 +1765,10 @@ EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT
 EXTRA_CFLAGS += -DCONFIG_QOS_OPTIMIZATION
 EXTRA_CFLAGS += -Wno-error=date-time
 
+# default setting for Android 7.0
+ifeq ($(RTK_ANDROID_VERSION), nougat)
+EXTRA_CFLAGS += -DRTW_P2P_GROUP_INTERFACE=1
+endif
 #EXTRA_CFLAGS += -DCONFIG_#PLATFORM_OPS
 ifeq ($(CONFIG_USB_HCI), y)
 EXTRA_CFLAGS += -DCONFIG_USE_USB_BUFFER_ALLOC_TX

@@ -1400,9 +1400,10 @@ void rtw_os_ndev_free(_adapter *adapter)
 
 int rtw_os_ndev_register(_adapter *adapter, const char *name)
 {
+	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
 	int ret = _SUCCESS;
 	struct net_device *ndev = adapter->pnetdev;
-
+	u8 rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
 
 #ifdef CONFIG_RTW_NAPI
 	netif_napi_add(ndev, &adapter->napi, rtw_recv_napi_poll, RTL_NAPI_WEIGHT);
@@ -1423,11 +1424,9 @@ int rtw_os_ndev_register(_adapter *adapter, const char *name)
 
 	/* Tell the network stack we exist */
 
-	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26))
-	if (!rtnl_is_locked())
+	if (rtnl_lock_needed)
 		ret = (register_netdev(ndev) == 0) ? _SUCCESS : _FAIL;
 	else
-	#endif
 		ret = (register_netdevice(ndev) == 0) ? _SUCCESS : _FAIL;
 
 	if (ret == _SUCCESS)
@@ -1469,15 +1468,19 @@ void rtw_os_ndev_unregister(_adapter *adapter)
 #endif
 
 	if ((adapter->DriverState != DRIVER_DISAPPEAR) && netdev) {
-		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26))
-		if (!rtnl_is_locked())
+		struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+		u8 rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
+
+		if (rtnl_lock_needed)
 			unregister_netdev(netdev);
 		else
-		#endif
 			unregister_netdevice(netdev);
 	}
 
 #if defined(CONFIG_IOCTL_CFG80211) && !defined(RTW_SINGLE_WIPHY)
+#ifdef CONFIG_RFKILL_POLL
+	rtw_cfg80211_deinit_rfkill(adapter_to_wiphy(adapter));
+#endif
 	rtw_wiphy_unregister(adapter_to_wiphy(adapter));
 #endif
 
@@ -1890,6 +1893,40 @@ void devobj_deinit(struct dvobj_priv *pdvobj)
 	_rtw_spinlock_free(&(pdvobj->ap_if_q.lock));
 
 	rtw_mfree((u8 *)pdvobj, sizeof(*pdvobj));
+}
+
+inline u8 rtw_rtnl_lock_needed(struct dvobj_priv *dvobj)
+{
+	if (dvobj->rtnl_lock_holder && dvobj->rtnl_lock_holder == current)
+		return 0;
+	return 1;
+}
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26))
+static inline int rtnl_is_locked(void)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 17))
+	if (unlikely(rtnl_trylock())) {
+		rtnl_unlock();
+#else
+	if (unlikely(down_trylock(&rtnl_sem) == 0)) {
+		up(&rtnl_sem);
+#endif
+		return 0;
+	}
+	return 1;
+}
+#endif
+
+inline void rtw_set_rtnl_lock_holder(struct dvobj_priv *dvobj, _thread_hdl_ thd_hdl)
+{
+	rtw_warn_on(!rtnl_is_locked());
+
+	if (!thd_hdl || rtnl_is_locked())
+		dvobj->rtnl_lock_holder = thd_hdl;
+
+	if (dvobj->rtnl_lock_holder && 0)
+		RTW_INFO("rtnl_lock_holder: %s:%d\n", current->comm, current->pid);
 }
 
 u8 rtw_reset_drv_sw(_adapter *padapter)
@@ -3540,16 +3577,20 @@ int rtw_suspend_free_assoc_resource(_adapter *padapter)
 
 	if (rtw_chk_roam_flags(padapter, RTW_ROAM_ON_RESUME)) {
 		if (check_fwstate(pmlmepriv, WIFI_STATION_STATE)
-		    && check_fwstate(pmlmepriv, _FW_LINKED)
-#ifdef CONFIG_P2P
-		    && rtw_p2p_chk_state(pwdinfo, P2P_STATE_NONE)
-#endif /* CONFIG_P2P */
-		   ) {
+			&& check_fwstate(pmlmepriv, _FW_LINKED)
+			#ifdef CONFIG_P2P
+			&& (rtw_p2p_chk_state(pwdinfo, P2P_STATE_NONE)
+				#if defined(CONFIG_IOCTL_CFG80211) && RTW_P2P_GROUP_INTERFACE
+				|| rtw_p2p_chk_role(pwdinfo, P2P_ROLE_DEVICE)
+				#endif
+				)
+			#endif /* CONFIG_P2P */
+		) {
 			RTW_INFO("%s %s(" MAC_FMT "), length:%d assoc_ssid.length:%d\n", __FUNCTION__,
-				 pmlmepriv->cur_network.network.Ssid.Ssid,
+				pmlmepriv->cur_network.network.Ssid.Ssid,
 				MAC_ARG(pmlmepriv->cur_network.network.MacAddress),
-				 pmlmepriv->cur_network.network.Ssid.SsidLength,
-				 pmlmepriv->assoc_ssid.SsidLength);
+				pmlmepriv->cur_network.network.Ssid.SsidLength,
+				pmlmepriv->assoc_ssid.SsidLength);
 			rtw_set_to_roam(padapter, 1);
 		}
 	}

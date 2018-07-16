@@ -418,6 +418,10 @@ struct hal_ops {
 	u8(*init_mac_register)(PADAPTER);
 	u8(*init_phy)(PADAPTER);
 #endif /* RTW_HALMAC */
+#ifdef CONFIG_RFKILL_POLL
+	bool (*hal_radio_onoff_check)(_adapter *adapter, u8 *valid);
+#endif
+
 };
 
 typedef	enum _RT_EEPROM_TYPE {
@@ -763,5 +767,9 @@ u8 rtw_hal_ops_check(_adapter *padapter);
 	u8 rtw_hal_init_mac_register(PADAPTER);
 	u8 rtw_hal_init_phy(PADAPTER);
 #endif /* RTW_HALMAC */
+
+#ifdef CONFIG_RFKILL_POLL
+bool rtw_hal_rfkill_poll(_adapter *adapter, u8 *valid);
+#endif
 
 #endif /* __HAL_INTF_H__ */

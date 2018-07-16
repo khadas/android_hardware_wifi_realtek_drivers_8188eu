@@ -1380,6 +1380,8 @@ static int wpa_set_encryption(struct net_device *dev, struct ieee_param *param, 
 						}
 						padapter->securitypriv.binstallGrpkey = _TRUE;
 						/* DEBUG_ERR((" param->u.crypt.key_len=%d\n", param->u.crypt.key_len)); */
+						if (param->u.crypt.idx < 4) 
+							_rtw_memcpy(padapter->securitypriv.iv_seq[param->u.crypt.idx], param->u.crypt.seq, 8);							
 						RTW_INFO(" ~~~~set sta key:groupkey\n");
 
 						padapter->securitypriv.dot118021XGrpKeyid = param->u.crypt.idx;
@@ -6395,6 +6397,7 @@ static int rtw_rereg_nd_name(struct net_device *dev,
 {
 	int ret = 0;
 	_adapter *padapter = rtw_netdev_priv(dev);
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
 	struct rereg_nd_name_data *rereg_priv = &padapter->rereg_nd_name_priv;
 	char new_ifname[IFNAMSIZ];
 
@@ -6422,7 +6425,9 @@ static int rtw_rereg_nd_name(struct net_device *dev,
 		return ret;
 
 	RTW_INFO("%s new_ifname:%s\n", __FUNCTION__, new_ifname);
+	rtw_set_rtnl_lock_holder(dvobj, current);
 	ret = rtw_change_ifname(padapter, new_ifname);
+	rtw_set_rtnl_lock_holder(dvobj, NULL);
 	if (0 != ret)
 		goto exit;
 
@@ -13340,7 +13345,11 @@ static int rtw_ioctl_standard_wext_private(struct net_device *dev, struct ifreq 
 static int rtw_ioctl_wext_private(struct net_device *dev, struct ifreq *rq)
 {
 #ifdef CONFIG_COMPAT
+#if (KERNEL_VERSION(4, 6, 0) > LINUX_VERSION_CODE)
 	if (is_compat_task())
+#else
+	if (in_compat_syscall())
+#endif
 		return rtw_ioctl_compat_wext_private(dev, rq);
 	else
 #endif /* CONFIG_COMPAT */

@@ -3662,7 +3662,7 @@ static void rtw_hal_update_gtk_offload_info(_adapter *adapter)
 	struct cam_ctl_t *cam_ctl = &dvobj->cam_ctl;
 	_irqL irqL;
 	u8 get_key[16];
-	u8 gtk_id = 0, offset = 0;
+	u8 gtk_id = 0, offset = 0, i = 0, sz = 0;
 	u64 replay_count = 0;
 
 	if (check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE)
@@ -3715,6 +3715,12 @@ static void rtw_hal_update_gtk_offload_info(_adapter *adapter)
 				&psecuritypriv->dot118021XGrprxmickey[gtk_id],
 				&(paoac_rpt->group_key[offset]),
 				RTW_TKIP_MIC_LEN);
+		}
+		/* Update broadcast RX IV */
+		if (psecuritypriv->dot118021XGrpPrivacy == _AES_) {
+			sz = sizeof(psecuritypriv->iv_seq[0]);
+			for (i = 0 ; i < 4 ; i++)
+				_rtw_memset(psecuritypriv->iv_seq[i], 0, sz);
 		}
 
 		RTW_PRINT("GTK (%d) "KEY_FMT"\n", gtk_id,
@@ -6655,19 +6661,34 @@ void rtw_hal_set_wow_fw_rsvd_page(_adapter *adapter, u8 *pframe, u16 index,
 		rsvd_page_loc->LocGTKInfo = *page_num;
 		RTW_INFO("LocGTKInfo: %d\n", rsvd_page_loc->LocGTKInfo);
 
-		_rtw_memcpy(pframe + index - tx_desc, kck, RTW_KCK_LEN);
-		_rtw_memcpy(pframe + index - tx_desc + RTW_KCK_LEN,
-			    kek, RTW_KEK_LEN);
-		GTKLength = tx_desc + RTW_KCK_LEN + RTW_KEK_LEN;
+		if (IS_HARDWARE_TYPE_8188E(adapter) || IS_HARDWARE_TYPE_8812(adapter)) {
+			struct security_priv *psecpriv = NULL;
 
-		if (psta != NULL &&
-			psecuritypriv->dot118021XGrpPrivacy == _TKIP_) {
-			_rtw_memcpy(pframe + index - tx_desc + 56,
-				&psta->dot11tkiptxmickey, RTW_TKIP_MIC_LEN);
-			GTKLength += RTW_TKIP_MIC_LEN;
+			psecpriv = &adapter->securitypriv;
+			_rtw_memcpy(pframe + index - tx_desc,
+				    &psecpriv->dot11PrivacyAlgrthm, 1);
+			_rtw_memcpy(pframe + index - tx_desc + 1,
+				    &psecpriv->dot118021XGrpPrivacy, 1);
+			_rtw_memcpy(pframe + index - tx_desc + 2,
+				    kck, RTW_KCK_LEN);
+			_rtw_memcpy(pframe + index - tx_desc + 2 + RTW_KCK_LEN,
+				    kek, RTW_KEK_LEN);
+			CurtPktPageNum = (u8)PageNum(tx_desc + 2 + RTW_KCK_LEN + RTW_KEK_LEN, page_size);
+		} else {
+
+			_rtw_memcpy(pframe + index - tx_desc, kck, RTW_KCK_LEN);
+			_rtw_memcpy(pframe + index - tx_desc + RTW_KCK_LEN,
+				    kek, RTW_KEK_LEN);
+			GTKLength = tx_desc + RTW_KCK_LEN + RTW_KEK_LEN;
+
+			if (psta != NULL &&
+				psecuritypriv->dot118021XGrpPrivacy == _TKIP_) {
+				_rtw_memcpy(pframe + index - tx_desc + 56,
+					&psta->dot11tkiptxmickey, RTW_TKIP_MIC_LEN);
+				GTKLength += RTW_TKIP_MIC_LEN;
+			}
+			CurtPktPageNum = (u8)PageNum(GTKLength, page_size);
 		}
-
-		CurtPktPageNum = (u8)PageNum(GTKLength, page_size);
 #if 0
 		{
 			int i;
@@ -11182,9 +11203,11 @@ void ResumeTxBeacon(_adapter *padapter)
 
 	pHalData->RegFwHwTxQCtrl |= BIT(6);
 	rtw_write8(padapter, REG_FWHW_TXQ_CTRL + 2, pHalData->RegFwHwTxQCtrl);
-	rtw_write8(padapter, REG_TBTT_PROHIBIT + 1, 0xff);
-	pHalData->RegReg542 |= BIT(0);
-	rtw_write8(padapter, REG_TBTT_PROHIBIT + 2, pHalData->RegReg542);
+	/*TBTT hold time :4ms 0x540[19:8]*/
+	rtw_write8(padapter, REG_TBTT_PROHIBIT + 1,
+		TBTT_PROBIHIT_HOLD_TIME & 0xFF);
+	rtw_write8(padapter, REG_TBTT_PROHIBIT + 2,
+		(rtw_read8(padapter, REG_TBTT_PROHIBIT + 2) & 0xF0) | (TBTT_PROBIHIT_HOLD_TIME >> 8));
 }
 
 void StopTxBeacon(_adapter *padapter)
@@ -11199,8 +11222,8 @@ void StopTxBeacon(_adapter *padapter)
 	pHalData->RegFwHwTxQCtrl &= ~BIT(6);
 	rtw_write8(padapter, REG_FWHW_TXQ_CTRL + 2, pHalData->RegFwHwTxQCtrl);
 	rtw_write8(padapter, REG_TBTT_PROHIBIT + 1, 0x64);
-	pHalData->RegReg542 &= ~BIT(0);
-	rtw_write8(padapter, REG_TBTT_PROHIBIT + 2, pHalData->RegReg542);
+	rtw_write8(padapter, REG_TBTT_PROHIBIT + 2,
+		(rtw_read8(padapter, REG_TBTT_PROHIBIT + 2) & 0xF0));
 
 	/*CheckFwRsvdPageContent(padapter);*/  /* 2010.06.23. Added by tynli. */
 }

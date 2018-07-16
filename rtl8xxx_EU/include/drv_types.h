@@ -84,12 +84,6 @@ typedef struct _ADAPTER _adapter, ADAPTER, *PADAPTER;
 #include <xmit_osdep.h>
 #include <rtw_recv.h>
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0))
-#define ieee80211_band nl80211_band
-#define IEEE80211_BAND_2GHZ NL80211_BAND_2GHZ
-#define IEEE80211_BAND_5GHZ NL80211_BAND_5GHZ
-#define IEEE80211_NUM_BANDS NUM_NL80211_BANDS
-#endif
 #ifdef CONFIG_BEAMFORMING
 	#include <rtw_beamforming.h>
 #endif
@@ -930,9 +924,13 @@ struct dvobj_priv {
 
 	struct rtw_traffic_statistics	traffic_stat;
 
-#if defined(CONFIG_IOCTL_CFG80211) && defined(RTW_SINGLE_WIPHY)
+#ifdef PLATFORM_LINUX
+	_thread_hdl_ rtnl_lock_holder;
+
+	#if defined(CONFIG_IOCTL_CFG80211) && defined(RTW_SINGLE_WIPHY)
 	struct wiphy *wiphy;
-#endif
+	#endif
+#endif /* PLATFORM_LINUX */
 
 #ifdef CONFIG_SWTIMER_BASED_TXBCN
 	_timer txbcn_timer;

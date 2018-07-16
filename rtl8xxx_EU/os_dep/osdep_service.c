@@ -2273,20 +2273,19 @@ RETURN:
 	return;
 }
 
-/*
-* Jeff: this function should be called under ioctl (rtnl_lock is accquired) while
-* LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26)
-*/
 int rtw_change_ifname(_adapter *padapter, const char *ifname)
 {
+	struct dvobj_priv *dvobj;
 	struct net_device *pnetdev;
 	struct net_device *cur_pnetdev;
 	struct rereg_nd_name_data *rereg_priv;
 	int ret;
+	u8 rtnl_lock_needed;
 
 	if (!padapter)
 		goto error;
 
+	dvobj = adapter_to_dvobj(padapter);
 	cur_pnetdev = padapter->pnetdev;
 	rereg_priv = &padapter->rereg_nd_name_priv;
 
@@ -2296,11 +2295,11 @@ int rtw_change_ifname(_adapter *padapter, const char *ifname)
 		rereg_priv->old_pnetdev = NULL;
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26))
-	if (!rtnl_is_locked())
+	rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
+
+	if (rtnl_lock_needed)
 		unregister_netdev(cur_pnetdev);
 	else
-#endif
 		unregister_netdevice(cur_pnetdev);
 
 	rereg_priv->old_pnetdev = cur_pnetdev;
@@ -2317,11 +2316,9 @@ int rtw_change_ifname(_adapter *padapter, const char *ifname)
 
 	_rtw_memcpy(pnetdev->dev_addr, adapter_mac_addr(padapter), ETH_ALEN);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26))
-	if (!rtnl_is_locked())
+	if (rtnl_lock_needed)
 		ret = register_netdev(pnetdev);
 	else
-#endif
 		ret = register_netdevice(pnetdev);
 
 	if (ret != 0) {

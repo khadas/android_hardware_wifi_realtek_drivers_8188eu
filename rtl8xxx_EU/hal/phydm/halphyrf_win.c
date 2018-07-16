@@ -727,13 +727,6 @@ odm_iq_calibrate(
 	struct _ADAPTER	*adapter = p_dm_odm->adapter;
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(adapter);
 
-#if 1/*(USE_CONNECTED_CH==1)*/
-	u1Byte	ConnectedChannels[MAX_SCAN_CHANNEL_NUM];
-	u1Byte	uNumberOfConnectedChannel = 0;
-	u1Byte    iter;
-	BOOLEAN connectedch_flag = FALSE;
-#endif
-
 	RT_TRACE(COMP_SCAN, ODM_DBG_LOUD, ("=>%s\n" , __FUNCTION__));
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
@@ -742,49 +735,15 @@ odm_iq_calibrate(
 #endif
 
 	if (p_dm_odm->is_linked) {
-
 		RT_TRACE(COMP_SCAN, ODM_DBG_LOUD, ("interval=%d ch=%d prech=%d scan=%s\n", p_dm_odm->linked_interval,
 			*p_dm_odm->p_channel,  p_dm_odm->pre_channel, *p_dm_odm->p_is_scan_in_process == TRUE ? "TRUE":"FALSE"));
-		if ((*p_dm_odm->p_channel != p_dm_odm->pre_channel) && (!*p_dm_odm->p_is_scan_in_process)) {
+
+		if (*p_dm_odm->p_channel != p_dm_odm->pre_channel) {
 			p_dm_odm->pre_channel = *p_dm_odm->p_channel;
 			p_dm_odm->linked_interval = 0;
 		}
 
-#if 1   /*(USE_CONNECTED_CH==1)*/
-		uNumberOfConnectedChannel = RtGetConnectedChannels(adapter, ConnectedChannels, MAX_SCAN_CHANNEL_NUM);
-		RT_TRACE(COMP_SCAN, ODM_DBG_LOUD, (" uNumberOfConnectedChannel %d ", uNumberOfConnectedChannel));
-		for (iter = 0; iter < uNumberOfConnectedChannel; iter++) {
-			RT_TRACE(COMP_SCAN, ODM_DBG_LOUD, (": Connected Channel: %d\n", ConnectedChannels[iter]));
-
-			if (*p_dm_odm->p_channel == ConnectedChannels[iter])	{
-				connectedch_flag = TRUE;
-				break;
-			}
-		}
-
-		/*Max use DM_Odm structure In case of scanning*/
-		if (!connectedch_flag || (*p_dm_odm->p_is_scan_in_process)) {
-			p_dm_odm->pre_channel = *p_dm_odm->p_channel;
-			p_dm_odm->linked_interval = 0;
-			RT_TRACE(COMP_SCAN, ODM_DBG_LOUD, ("Delay IQK because scan in progress\n"));
-		}
-
-#elif
-
-			RT_TRACE(COMP_MAX_DEBUG, DBG_LOUD, ("SwChn=%s Real Scan=%s\n",
-			pHalData->SwChnlInProgress == TRUE ? "TRUE" : "FALSE",
-			adapter->MgntInfo.bScanInProgress == TRUE ? "TRUE" : "FALSE"));
-
-/*		 if(pHalData->SwChnlInProgress || adapter->MgntInfo.bScanInProgress)*/      /*Max add, In case of scanning*/
-		 if ((*pDM_Odm->pChannel != pDM_Odm->preChannel) || (*pDM_Odm->pbScanInProcess)) { /*Max use DM_Odm structure*/
-			pDM_Odm->preChannel = *pDM_Odm->pChannel;
-			pDM_Odm->LinkedInterval = 0;
-				ODM_RT_TRACE(pDM_Odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD, ("Delay IQK because scan in progress\n"));
-		}
-#endif
-
-
-		if (p_dm_odm->linked_interval < 3)
+		if ((p_dm_odm->linked_interval < 3) && (!*p_dm_odm->p_is_scan_in_process))
 			p_dm_odm->linked_interval++;
 
 		if (p_dm_odm->linked_interval == 2)
@@ -794,7 +753,6 @@ odm_iq_calibrate(
 
 		RT_TRACE(COMP_SCAN, ODM_DBG_LOUD, ("<=%s interval=%d ch=%d prech=%d scan=%s\n", __FUNCTION__, p_dm_odm->linked_interval,
 			*p_dm_odm->p_channel,  p_dm_odm->pre_channel, *p_dm_odm->p_is_scan_in_process == TRUE?"TRUE":"FALSE"));
-
 }
 
 void phydm_rf_init(struct PHY_DM_STRUCT		*p_dm_odm)

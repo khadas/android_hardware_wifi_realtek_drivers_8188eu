@@ -91,6 +91,7 @@ void rtl8188eu_interface_configure(_adapter *padapter)
 {
 	HAL_DATA_TYPE	*pHalData	= GET_HAL_DATA(padapter);
 	struct dvobj_priv	*pdvobjpriv = adapter_to_dvobj(padapter);
+	struct registry_priv  *registry_par = &padapter->registrypriv;
 
 	if (IS_HIGH_SPEED_USB(padapter)) {
 		pHalData->UsbBulkOutSize = USB_HIGH_SPEED_BULK_SIZE;/* 512 bytes */
@@ -106,11 +107,18 @@ void rtl8188eu_interface_configure(_adapter *padapter)
 #endif
 
 #ifdef CONFIG_USB_RX_AGGREGATION
-	pHalData->rxagg_mode		= RX_AGG_DMA;
-	pHalData->rxagg_usb_size	= 8; /* unit: 512b */
-	pHalData->rxagg_usb_timeout	= 0x6;
-	pHalData->rxagg_dma_size	= 48; /* uint: 128b, 0x0A = 10 = MAX_RX_DMA_BUFFER_SIZE/2/pHalData->UsbBulkOutSize */
-	pHalData->rxagg_dma_timeout	= 0x4; /* 6, absolute time = 34ms/(2^6) */
+	pHalData->rxagg_mode = registry_par->usb_rxagg_mode;
+
+	if ((pHalData->rxagg_mode != RX_AGG_DMA) && (pHalData->rxagg_mode != RX_AGG_USB))
+		pHalData->rxagg_mode = RX_AGG_DMA;
+
+	if (pHalData->rxagg_mode	== RX_AGG_DMA) {
+		pHalData->rxagg_dma_size	= 48; /* uint: 128b, 0x0A = 10 = MAX_RX_DMA_BUFFER_SIZE/2/pHalData->UsbBulkOutSize */
+		pHalData->rxagg_dma_timeout	= 0x4; /* 6, absolute time = 34ms/(2^6) */
+	} else if (pHalData->rxagg_mode == RX_AGG_USB) {
+		pHalData->rxagg_usb_size	= 16; /* unit: 512b */
+		pHalData->rxagg_usb_timeout	= 0x6;
+	}
 #endif
 
 	HalUsbSetQueuePipeMapping8188EUsb(padapter,
@@ -1102,7 +1110,14 @@ _InitBeaconParameters(
 	rtw_write16(Adapter, REG_BCN_CTRL, 0x1010);
 
 	/* TODO: Remove these magic number */
-	rtw_write16(Adapter, REG_TBTT_PROHIBIT, 0x6404); /* ms */
+	/* TBTT setup time:128 us */
+	rtw_write8(Adapter, REG_TBTT_PROHIBIT, 0x04);
+
+	/*TBTT hold time :4ms 0x540[19:8]*/
+	rtw_write8(Adapter, REG_TBTT_PROHIBIT + 1,
+		TBTT_PROBIHIT_HOLD_TIME & 0xFF);
+	rtw_write8(Adapter, REG_TBTT_PROHIBIT + 2,
+		(rtw_read8(Adapter, REG_TBTT_PROHIBIT + 2) & 0xF0) | (TBTT_PROBIHIT_HOLD_TIME >> 8));
 	rtw_write8(Adapter, REG_DRVERLYINT, DRIVER_EARLY_INT_TIME_8188E);/* 5ms */
 	rtw_write8(Adapter, REG_BCNDMATIM, BCN_DMA_ATIME_INT_TIME_8188E); /* 2ms */
 

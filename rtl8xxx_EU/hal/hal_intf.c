@@ -1090,6 +1090,21 @@ u8 rtw_hal_init_phy(PADAPTER adapter)
 }
 #endif /* RTW_HALMAC */
 
+#ifdef CONFIG_RFKILL_POLL
+bool rtw_hal_rfkill_poll(_adapter *adapter, u8 *valid)
+{
+	bool ret;
+
+	if (adapter->hal_func.hal_radio_onoff_check)
+		ret = adapter->hal_func.hal_radio_onoff_check(adapter, valid);
+	else {
+		*valid = 0;
+		ret = _FALSE;
+	}
+	return ret;
+}
+#endif
+
 #define rtw_hal_error_msg(ops_fun)		\
 	RTW_PRINT("### %s - Error : Please hook hal_func.%s ###\n", __FUNCTION__, ops_fun)
 
@@ -1389,6 +1404,13 @@ u8 rtw_hal_ops_check(_adapter *padapter)
 		ret = _FAIL;
 	}
 #endif /* RTW_HALMAC */
+
+#ifdef CONFIG_RFKILL_POLL
+	if (padapter->hal_func.hal_radio_onoff_check == NULL) {
+		rtw_hal_error_msg("hal_radio_onoff_check");
+		ret = _FAIL;
+	}
+#endif
 #endif
 	return  ret;
 }

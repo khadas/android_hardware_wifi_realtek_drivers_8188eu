@@ -213,8 +213,8 @@ struct _odm_phy_status_info_ {
 	u8		rx_pwdb_all;
 #endif
 	u8		signal_quality;				/* in 0-100 index. */
-	s8		rx_mimo_signal_quality[4];		/* per-path's EVM */
-	u8		rx_mimo_evm_dbm[4];			/* per-path's EVM dbm */
+	s8		rx_mimo_signal_quality[4];		/* per-path's EVM translate to 0~100% */
+	u8		rx_mimo_evm_dbm[4];			/* per-path's original EVM (dbm) */
 	u8		rx_mimo_signal_strength[4];	/* in 0~100 index */
 	s16		cfo_short[4];				/* per-path's cfo_short */
 	s16		cfo_tail[4];					/* per-path's cfo_tail */
@@ -337,6 +337,8 @@ enum odm_cmninfo_e {
 	ODM_CMNINFO_REGRFKFREEENABLE,
 	ODM_CMNINFO_RFKFREEENABLE,
 	ODM_CMNINFO_NORMAL_RX_PATH_CHANGE,
+	ODM_CMNINFO_EFUSE0X3D8,
+	ODM_CMNINFO_EFUSE0X3D7,
 	/*-----------HOOK BEFORE REG INIT-----------*/
 
 	/*Dynamic value:*/
@@ -575,6 +577,9 @@ enum phy_reg_pg_type {
 	/*with external PA  NO/Yes = 0/1*/
 	u8			ext_pa;		/*2G*/
 	u8			ext_pa_5g;	/*5G*/
+	/*with Efuse number*/
+	u8 			efuse0x3d7;
+	u8 			efuse0x3d8;
 	/*with external TRSW  NO/Yes = 0/1*/
 	u8			ext_trsw;
 	u8			ext_lna_gain;	/*2G*/
@@ -594,6 +599,7 @@ enum phy_reg_pg_type {
 	u8			phydm_period;
 	u32			phydm_sys_up_time;
 	u8			num_rf_path;
+	u8			is_receiver_blocking_en;
 	/*-----------HOOK BEFORE REG INIT-----------*/
 
 	/*Dynamic value*/
@@ -714,6 +720,7 @@ enum phy_reg_pg_type {
 	u64			cur_rx_ok_cnt;
 	u64			last_tx_ok_cnt;
 	u64			last_rx_ok_cnt;
+	u16			consecutive_idlel_time;	/*unit: second*/
 	u32			bb_swing_offset_a;
 	bool			is_bb_swing_offset_positive_a;
 	u32			bb_swing_offset_b;
@@ -1094,6 +1101,12 @@ odm_init_mp_driver_status(
 );
 
 void
+phydm_txcurrentcalibration(
+	struct PHY_DM_STRUCT	*p_dm_odm
+);	
+
+
+void
 phydm_seq_sorting(
 	void	*p_dm_void,
 	u32	*p_value,
@@ -1315,4 +1328,9 @@ phydm_nbi_setting(
 	u32		bw,
 	u32		f_interference,
 	u32		second_ch
+);
+
+void
+phydm_receiver_blocking(
+	void *p_dm_void
 );

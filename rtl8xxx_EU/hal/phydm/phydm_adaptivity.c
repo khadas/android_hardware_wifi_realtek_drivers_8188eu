@@ -489,7 +489,7 @@ phydm_search_pwdb_lower_bound(
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _ADAPTIVITY_STATISTICS	*adaptivity = (struct _ADAPTIVITY_STATISTICS *)phydm_get_structure(p_dm_odm, PHYDM_ADAPTIVITY);
 	u32			value32 = 0, reg_value32 = 0;
-	u8			cnt;
+	u8			cnt, try_count = 0;
 	u8			tx_edcca1 = 0, tx_edcca0 = 0;
 	bool			is_adjust = true;
 	s8			th_l2h_dmc, th_h2l_dmc, igi_target = 0x32;
@@ -523,7 +523,8 @@ phydm_search_pwdb_lower_bound(
 			reg_value32 = odm_get_bb_reg(p_dm_odm, ODM_REG_RPT_11AC, MASKDWORD);
 		}
 #endif
-		while (value32 & BIT(3)) {
+		while (reg_value32 & BIT(3) && try_count < 3) {
+			try_count = try_count + 1;
 			ODM_delay_ms(3);
 			if (p_dm_odm->support_ic_type & ODM_IC_11N_SERIES)
 				reg_value32 = odm_get_bb_reg(p_dm_odm, ODM_REG_RPT_11N, MASKDWORD);
@@ -532,6 +533,8 @@ phydm_search_pwdb_lower_bound(
 				reg_value32 = odm_get_bb_reg(p_dm_odm, ODM_REG_RPT_11AC, MASKDWORD);
 #endif
 		}
+		try_count = 0;
+
 		for (cnt = 0; cnt < 20; cnt++) {
 			if (p_dm_odm->support_ic_type & ODM_IC_11N_SERIES) {
 				odm_set_bb_reg(p_dm_odm, ODM_REG_DBG_RPT_11N, MASKDWORD, 0x208);

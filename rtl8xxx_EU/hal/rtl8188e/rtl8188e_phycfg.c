@@ -1511,14 +1511,19 @@ phy_SpurCalibration_8188E(
 )
 {
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(Adapter);
+	struct PHY_DM_STRUCT		*p_dm_odm = &(pHalData->odmpriv);
 
 	/* DbgPrint("===> phy_SpurCalibration_8188E  current_channel_bw = %d, current_channel = %d\n", pHalData->current_channel_bw, pHalData->current_channel);*/
 	if (pHalData->current_channel_bw == CHANNEL_WIDTH_20 && (pHalData->current_channel == 13 || pHalData->current_channel == 14)) {
 		phy_set_bb_reg(Adapter, rOFDM0_RxDSP, BIT(9), 0x1);/* enable notch filter */
 		phy_set_bb_reg(Adapter, rOFDM1_IntfDet, BIT(8) | BIT(7) | BIT(6), 0x2);	/* intf_TH */
+		phy_set_bb_reg(Adapter, rOFDM0_RxDSP, BIT(28) | BIT(27) | BIT(26) | BIT(25) | BIT(24), 0x1f);
+		p_dm_odm->is_receiver_blocking_en = false;
 	} else if (pHalData->current_channel_bw == CHANNEL_WIDTH_40 && pHalData->current_channel == 11) {
 		phy_set_bb_reg(Adapter, rOFDM0_RxDSP, BIT(9), 0x1);/* enable notch filter */
 		phy_set_bb_reg(Adapter, rOFDM1_IntfDet, BIT(8) | BIT(7) | BIT(6), 0x2);	/* intf_TH */
+		phy_set_bb_reg(Adapter, rOFDM0_RxDSP, BIT(28) | BIT(27) | BIT(26) | BIT(25) | BIT(24), 0x1f);
+		p_dm_odm->is_receiver_blocking_en = false;
 	} else {
 		if (Adapter->registrypriv.notch_filter == 0)
 			phy_set_bb_reg(Adapter, rOFDM0_RxDSP, BIT(9), 0x0);/* disable notch filter */
@@ -1998,7 +2003,6 @@ PHY_SetRFEReg_8188E(
 	IN PADAPTER		Adapter
 )
 {
-#ifdef CONFIG_8188E_HIGH_POWER
 	u8			u1tmp = 0;
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(Adapter);
 
@@ -2014,5 +2018,4 @@ PHY_SetRFEReg_8188E(
 		phy_set_bb_reg(Adapter, 0x87C, BIT0, 0x0);
 		break;
 	}
-#endif
 }

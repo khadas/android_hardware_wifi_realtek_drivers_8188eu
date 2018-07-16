@@ -256,6 +256,10 @@ phydm_traffic_load_decision(
 #endif
 	p_dm_odm->total_tp = p_dm_odm->tx_tp + p_dm_odm->rx_tp;
 
+	if (p_dm_odm->total_tp == 0)
+		p_dm_odm->consecutive_idlel_time += PHYDM_WATCH_DOG_PERIOD;
+	else
+		p_dm_odm->consecutive_idlel_time = 0;
 	/*
 	ODM_RT_TRACE(p_dm_odm, ODM_COMP_COMMON, ODM_DBG_LOUD, ("cur_tx_ok_cnt = %d, cur_rx_ok_cnt = %d, last_tx_ok_cnt = %d, last_rx_ok_cnt = %d\n",
 		p_dm_odm->cur_tx_ok_cnt, p_dm_odm->cur_rx_ok_cnt, p_dm_odm->last_tx_ok_cnt, p_dm_odm->last_rx_ok_cnt));
@@ -1034,6 +1038,12 @@ odm_dm_init(
 	odm_rssi_monitor_init(p_dm_odm);
 	phydm_rf_init(p_dm_odm);
 	odm_txpowertracking_init(p_dm_odm);
+
+#if (RTL8822B_SUPPORT == 1)
+			if (p_dm_odm->support_ic_type & ODM_RTL8822B)
+				phydm_txcurrentcalibration(p_dm_odm);
+#endif
+	
 	odm_antenna_diversity_init(p_dm_odm);
 #if (CONFIG_DYNAMIC_RX_PATH == 1)
 	phydm_dynamic_rx_path_init(p_dm_odm);
@@ -1208,6 +1218,7 @@ odm_dm_watchdog(
 {
 	odm_common_info_self_update(p_dm_odm);
 	phydm_basic_dbg_message(p_dm_odm);
+	phydm_receiver_blocking(p_dm_odm);
 	odm_hw_setting(p_dm_odm);
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_AP)
@@ -1439,6 +1450,12 @@ odm_cmn_info_init(
 		break;
 	case	ODM_CMNINFO_NORMAL_RX_PATH_CHANGE:
 		p_dm_odm->normal_rx_path = (u8)value;
+		break;
+	case	ODM_CMNINFO_EFUSE0X3D8:
+		p_dm_odm->efuse0x3d8 = (u8)value;
+		break;
+	case	ODM_CMNINFO_EFUSE0X3D7:
+		p_dm_odm->efuse0x3d7 = (u8)value;
 		break;
 #ifdef CONFIG_PHYDM_DFS_MASTER
 	case	ODM_CMNINFO_DFS_REGION_DOMAIN:
@@ -3365,4 +3382,44 @@ phydm_api_debug(
 			set_result = SET_ERROR;
 		PHYDM_SNPRINTF((output + used, out_len - used, "[CSI MASK set result: %s]\n", (set_result == SET_SUCCESS) ? "Success" : ((set_result == SET_NO_NEED) ? "No need" : "Error")));
 	}
+}
+
+void
+phydm_receiver_blocking(
+	void *p_dm_void
+)
+{
+#ifdef CONFIG_RECEIVER_BLOCKING
+	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
+	u32	channel = *p_dm_odm->p_channel;
+	u8	bw = *p_dm_odm->p_band_width;
+	u8	set_result = 0;
+
+	if (!(p_dm_odm->support_ic_type & ODM_RECEIVER_BLOCKING_SUPPORT))
+		return;
+	
+	if (p_dm_odm->consecutive_idlel_time > 10 && p_dm_odm->mp_mode == false && p_dm_odm->adaptivity_enable == true) {
+		if ((bw == ODM_BW20M) && (channel == 1)) {
+			set_result = phydm_nbi_setting(p_dm_odm, NBI_ENABLE, channel, 20, 2410, PHYDM_DONT_CARE);
+			p_dm_odm->is_receiver_blocking_en = true;
+		} else if ((bw == ODM_BW20M) && (channel == 13)) {
+			set_result = phydm_nbi_setting(p_dm_odm, NBI_ENABLE, channel, 20, 2473, PHYDM_DONT_CARE);
+			p_dm_odm->is_receiver_blocking_en = true;
+		} else if (*(p_dm_odm->p_is_scan_in_process) == false) {
+			if (p_dm_odm->is_receiver_blocking_en && channel != 1 && channel != 13) {
+				phydm_nbi_enable(p_dm_odm, NBI_DISABLE);
+				odm_set_bb_reg(p_dm_odm, 0xc40, 0x1f000000, 0x1f);
+				p_dm_odm->is_receiver_blocking_en = false;
+			}
+		}
+	} else {
+		if (p_dm_odm->is_receiver_blocking_en) {
+			phydm_nbi_enable(p_dm_odm, NBI_DISABLE);
+			odm_set_bb_reg(p_dm_odm, 0xc40, 0x1f000000, 0x1f);
+			p_dm_odm->is_receiver_blocking_en = false;
+		}
+	}
+	ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_ADAPTIVITY, ODM_DBG_LOUD, 
+		("[NBI set result: %s]\n", (set_result == SET_SUCCESS ? "Success" : (set_result == SET_NO_NEED ? "No need" : "Error"))));
+#endif
 }

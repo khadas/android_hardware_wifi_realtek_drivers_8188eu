@@ -9881,6 +9881,12 @@ static int issue_action_ba(_adapter *padapter, unsigned char *raddr, unsigned ch
 			BA_para_set = (0x1002 | ((tid & 0xf) << 2)); /* immediate ack & 64 buffer size */
 #endif
 
+#ifdef CONFIG_TX_AMSDU
+			if (padapter->tx_amsdu >= 1) /* TX AMSDU  enabled */
+				BA_para_set |= BIT(0);
+			else /* TX AMSDU disabled */
+				BA_para_set &= ~BIT(0);
+#endif
 			BA_para_set = cpu_to_le16(BA_para_set);
 			pframe = rtw_set_fixed_ie(pframe, 2, (unsigned char *)(&(BA_para_set)), &(pattrib->pktlen));
 
@@ -12389,6 +12395,8 @@ void linked_status_chk(_adapter *padapter, u8 from_timer)
 	struct recv_priv	*precvpriv = &padapter->recvpriv;
 #endif
 
+	if (padapter->registrypriv.mp_mode == _TRUE)
+		return;
 
 	if (is_client_associated_to_ap(padapter)) {
 		/* linked infrastructure client mode */

@@ -34,7 +34,7 @@ phydm_beamforming_set_iqgen_8814A(
 		for (i = ODM_RF_PATH_A; i < MAX_RF_PATH; i++)
 			rf_mode[i] = odm_get_rf_reg(p_dm_odm, i, RF_RCK_OS, 0xfffff);
 
-		if ((rf_mode[0] == 0x180000) && (rf_mode[1] == 0x180000) && (rf_mode[2] == 0x180000) && (rf_mode[3] == 0x180000))
+		if ((rf_mode[0] == 0x18000) && (rf_mode[1] == 0x18000) && (rf_mode[2] == 0x18000) && (rf_mode[3] == 0x18000))
 			break;
 		else if (counter == 100) {
 			ODM_RT_TRACE(p_dm_odm, PHYDM_COMP_TXBF, ODM_DBG_TRACE, ("iqgen setting fail:8814A\n"));
@@ -563,7 +563,7 @@ hal_txbf_8814a_enter(
 			u8	tmp = odm_read_1byte(p_dm_odm, REG_ASSOCIATED_BFMEE_SEL_8814A + 3) & 0x3;
 
 			odm_write_1byte(p_dm_odm, REG_ASSOCIATED_BFMEE_SEL_8814A + 3, tmp | 0x60);
-			odm_write_2byte(p_dm_odm, REG_ASSOCIATED_BFMEE_SEL_8814A, sta_id);
+			odm_write_2byte(p_dm_odm, REG_ASSOCIATED_BFMEE_SEL_8814A, sta_id | BIT(9));
 		} else
 			odm_write_2byte(p_dm_odm, REG_ASSOCIATED_BFMEE_SEL_8814A + 2, sta_id | 0xE200);	/*Set BIT25*/
 
