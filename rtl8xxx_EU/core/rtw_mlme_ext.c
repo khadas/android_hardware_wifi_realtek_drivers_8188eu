@@ -1745,7 +1745,22 @@ static void _mgt_dispatcher(_adapter *padapter, struct mlme_handler *ptable, uni
 		/* receive the frames that ra(a1) is my address or ra(a1) is bc address. */
 		if (!_rtw_memcmp(GetAddr1Ptr(pframe), adapter_mac_addr(padapter), ETH_ALEN) &&
 		    !_rtw_memcmp(GetAddr1Ptr(pframe), bc_addr, ETH_ALEN))
+#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+		{		
+			struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(padapter);
+
+		    if (check_fwstate(&padapter->mlmepriv, _FW_LINKED) == _TRUE)
+				return;
+
+		    if ( pwdev_priv->pno_mac_addr[0] == 0xFF)
+				return;
+
+		    if (!_rtw_memcmp(GetAddr1Ptr(pframe), adapter_pno_mac_addr(padapter), ETH_ALEN))
+				return;
+		}
+#else
 			return;
+#endif
 
 		ptable->func(padapter, precv_frame);
 	}
@@ -1784,7 +1799,22 @@ void mgt_dispatcher(_adapter *padapter, union recv_frame *precv_frame)
 	/* receive the frames that ra(a1) is my address or ra(a1) is bc address. */
 	if (!_rtw_memcmp(GetAddr1Ptr(pframe), adapter_mac_addr(padapter), ETH_ALEN) &&
 	    !_rtw_memcmp(GetAddr1Ptr(pframe), bc_addr, ETH_ALEN))
+#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+		{		
+			struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(padapter);
+
+			if (check_fwstate(&padapter->mlmepriv, _FW_LINKED) == _TRUE)
+				return;
+
+		if ( pwdev_priv->pno_mac_addr[0] == 0xFF)
+				return;
+
+			if (!_rtw_memcmp(GetAddr1Ptr(pframe), adapter_pno_mac_addr(padapter), ETH_ALEN))
+				return;
+		}
+#else
 		return;
+#endif
 
 	ptable = mlme_sta_tbl;
 
@@ -8798,6 +8828,9 @@ int _issue_probereq(_adapter *padapter, const NDIS_802_11_SSID *pssid, const u8 
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	int	bssrate_len = 0;
 	u8	bc_addr[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+	struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(padapter);
+#endif
 
 	if (rtw_rfctl_is_tx_blocked_by_ch_waiting(adapter_to_rfctl(padapter)))
 		goto exit;
@@ -8816,6 +8849,12 @@ int _issue_probereq(_adapter *padapter, const NDIS_802_11_SSID *pssid, const u8 
 	pframe = (u8 *)(pmgntframe->buf_addr) + TXDESC_OFFSET;
 	pwlanhdr = (struct rtw_ieee80211_hdr *)pframe;
 
+#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+	if ((pwdev_priv->pno_mac_addr[0] != 0xFF)
+	    && (check_fwstate(&padapter->mlmepriv, _FW_LINKED) == _FALSE))
+		mac = pwdev_priv->pno_mac_addr;
+	else
+#endif
 	mac = adapter_mac_addr(padapter);
 
 	fctrl = &(pwlanhdr->frame_ctl);
@@ -8833,8 +8872,23 @@ int _issue_probereq(_adapter *padapter, const NDIS_802_11_SSID *pssid, const u8 
 
 	_rtw_memcpy(pwlanhdr->addr2, mac, ETH_ALEN);
 
-	SetSeqNum(pwlanhdr, pmlmeext->mgnt_seq);
-	pmlmeext->mgnt_seq++;
+#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+	if ((pwdev_priv->pno_mac_addr[0] != 0xFF)
+	    && (check_fwstate(&padapter->mlmepriv, _FW_LINKED) == _FALSE)) {
+#ifdef CONFIG_RTW_DEBUG
+		RTW_DBG("%s pno_scan_seq_num: %d\n", __func__,
+			 pwdev_priv->pno_scan_seq_num);
+#endif
+		SetSeqNum(pwlanhdr, pwdev_priv->pno_scan_seq_num);
+		pattrib->seqnum = pwdev_priv->pno_scan_seq_num;
+		pattrib->qos_en = 1;
+		pwdev_priv->pno_scan_seq_num++;
+	} else
+#endif
+	{
+		SetSeqNum(pwlanhdr, pmlmeext->mgnt_seq);
+		pmlmeext->mgnt_seq++;
+	}
 	set_frame_sub_type(pframe, WIFI_PROBEREQ);
 
 	pframe += sizeof(struct rtw_ieee80211_hdr_3addr);
@@ -14829,6 +14883,12 @@ static u8 sitesurvey_pick_ch_behavior(_adapter *padapter, u8 *ch, RT_SCAN_TYPE *
 		}
 #endif /* CONFIG_DFS */
 
+#ifdef CONFIG_RTW_WIFI_HAL
+		if (adapter_to_dvobj(padapter)->nodfs && ss->channel_idx != 0)
+			while ( ss->channel_idx < ss->ch_num && rtw_is_dfs_ch(ss->ch[ss->channel_idx].hw_value))
+				ss->channel_idx++;
+#endif
+
 		if (ss->channel_idx < ss->ch_num) {
 			ch = &ss->ch[ss->channel_idx];
 			scan_ch = ch->hw_value;
@@ -15258,6 +15318,9 @@ u8 sitesurvey_cmd_hdl(_adapter *padapter, u8 *pbuf)
 	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
 	struct ss_res *ss = &pmlmeext->sitesurvey_res;
+#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+		struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(padapter);
+#endif
 	u8 val8;
 
 #ifdef CONFIG_P2P
@@ -15292,6 +15355,20 @@ operation_by_state:
 		goto operation_by_state;
 
 	case SCAN_START:
+#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+		if ((pwdev_priv->pno_mac_addr[0] != 0xFF)
+	    	    && (check_fwstate(&padapter->mlmepriv, _FW_LINKED) == _FALSE)) {
+			u16 seq_num;
+
+			rtw_hal_pno_random_gen_mac_addr(padapter);
+			rtw_hal_set_hw_mac_addr(padapter, pwdev_priv->pno_mac_addr);
+			get_random_bytes(&seq_num, 2);
+			pwdev_priv->pno_scan_seq_num = seq_num & 0xFFF;
+			RTW_INFO("%s pno_scan_seq_num %d\n", __func__,
+				 pwdev_priv->pno_scan_seq_num);
+		}
+#endif
+
 		/*
 		* prepare to leave operating channel
 		*/
@@ -15566,6 +15643,9 @@ operation_by_state:
 #endif /* CONFIG_P2P */
 
 	case SCAN_COMPLETE:
+#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+		rtw_hal_set_hw_mac_addr(padapter, adapter_mac_addr(padapter));
+#endif
 #ifdef CONFIG_P2P
 		if (rtw_p2p_chk_state(pwdinfo, P2P_STATE_SCAN)
 		    || rtw_p2p_chk_state(pwdinfo, P2P_STATE_FIND_PHASE_SEARCH)

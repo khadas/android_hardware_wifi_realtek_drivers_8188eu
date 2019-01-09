@@ -9001,6 +9001,13 @@ static void rtw_cfg80211_preinit_wiphy(_adapter *adapter, struct wiphy *wiphy)
 #endif
 								;
 
+#if defined(CONFIG_ANDROID) && !defined(RTW_SINGLE_WIPHY)
+        if (is_primary_adapter(adapter)) {
+                wiphy->interface_modes &= ~(BIT(NL80211_IFTYPE_P2P_GO) | BIT(NL80211_IFTYPE_P2P_CLIENT));
+                RTW_INFO("%s primary- don't set p2p capability\n", __func__);
+        }
+#endif
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE)
 #ifdef CONFIG_AP_MODE
 	wiphy->mgmt_stypes = rtw_cfg80211_default_mgmt_stypes;
@@ -9512,6 +9519,13 @@ int rtw_wdev_alloc(_adapter *padapter, struct wiphy *wiphy)
 #ifdef CONFIG_CONCURRENT_MODE
 	ATOMIC_SET(&pwdev_priv->switch_ch_to, 1);
 #endif
+
+#ifdef CONFIG_RTW_CFGVEDNOR_RSSIMONITOR
+        pwdev_priv->rssi_monitor_enable = 0;
+        pwdev_priv->rssi_monitor_max = 0;
+        pwdev_priv->rssi_monitor_min = 0;
+#endif
+
 
 exit:
 	return ret;

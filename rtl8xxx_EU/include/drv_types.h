@@ -1051,6 +1051,11 @@ struct dvobj_priv {
 #ifdef CONFIG_FW_MULTI_PORT_SUPPORT
 	u8 default_port_id;
 #endif
+
+#ifdef CONFIG_RTW_WIFI_HAL
+	u32 nodfs;
+#endif
+
 	/*-------- below is for SDIO INTERFACE --------*/
 
 #ifdef INTF_DATA
@@ -1608,6 +1613,11 @@ struct _ADAPTER {
 #define adapter_to_macidctl(adapter) dvobj_to_macidctl(adapter_to_dvobj((adapter)))
 
 #define adapter_mac_addr(adapter) (adapter->mac_addr)
+#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+#define adapter_pno_mac_addr(adapter) \
+	((adapter_wdev_data(adapter))->pno_mac_addr)
+#endif
+
 #define adapter_to_chset(adapter) (adapter_to_rfctl((adapter))->channel_set)
 
 #define mlme_to_adapter(mlme) container_of((mlme), struct _ADAPTER, mlmepriv)

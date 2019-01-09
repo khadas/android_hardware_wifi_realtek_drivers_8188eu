@@ -2229,6 +2229,9 @@ u8 rtw_init_drv_sw(_adapter *padapter)
 
 	u8	ret8 = _SUCCESS;
 
+#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+	struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(padapter);
+#endif
 
 
 	_rtw_init_listhead(&padapter->list);
@@ -2371,6 +2374,10 @@ u8 rtw_init_drv_sw(_adapter *padapter)
 
 #ifdef CONFIG_RTW_80211K
 	rtw_init_rm(padapter);
+#endif
+
+#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+	memset(pwdev_priv->pno_mac_addr, 0xFF, ETH_ALEN);
 #endif
 
 exit:

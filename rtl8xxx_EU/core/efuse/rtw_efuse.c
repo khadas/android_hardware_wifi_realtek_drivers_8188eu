@@ -2339,6 +2339,7 @@ u8 rtw_efuse_map_write(PADAPTER padapter, u16 addr, u16 cnts, u8 *data)
 	_rtw_memset(map, 0xFF, mapLen);
 
 	ret = rtw_efuse_map_read(padapter, 0, mapLen, map);
+
 	if (ret == _FAIL)
 		goto exit;
 
@@ -2354,7 +2355,7 @@ u8 rtw_efuse_map_write(PADAPTER padapter, u16 addr, u16 cnts, u8 *data)
 				if (efuse_IsMasked(padapter, addr + i))
 					efuse[addr + i] = map[addr + i];
 			}
-			RTW_INFO("%s , data[%d] = %x, map[addr+i]= %x\n", __func__, addr + i, efuse[ addr + i], map[addr + i]);
+			RTW_INFO("%s ,Write data[%d] = %x, map[%d]= %x\n", __func__, addr + i, efuse[ addr + i], addr + i, map[addr + i]);
 		}
 	}
 	/*Efuse_PowerSwitch(padapter, _TRUE, _TRUE);*/

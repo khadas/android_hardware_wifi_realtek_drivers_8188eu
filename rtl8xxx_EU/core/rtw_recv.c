@@ -4867,6 +4867,10 @@ s32 pre_recv_entry(union recv_frame *precvframe, u8 *pphy_status)
 	if (ra_is_bmc == _FALSE) { /*unicast packets*/
 		iface = rtw_get_iface_by_macddr(primary_padapter , pda);
 		if (NULL == iface) {
+		#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+			if (_rtw_memcmp(pda, adapter_pno_mac_addr(primary_padapter),
+					ETH_ALEN) != _TRUE)
+		#endif
 			RTW_INFO("%s [WARN] Cannot find appropriate adapter - mac_addr : "MAC_FMT"\n", __func__, MAC_ARG(pda));
 			/*rtw_warn_on(1);*/
 		} else

@@ -360,8 +360,8 @@ phydm_c2h_ra_report_handler(
 		PHYDM_DBG(dm, DBG_RA, "RA retry ratio: [%d]:", curr_ra_ratio);
 			/**/
 	}
-
-	if (cmd_len > 3 && cmd_buf[3] != 0) {
+	
+	if (cmd_buf[3] != 0) {
 		if (cmd_buf[3] == 0xff) {
 			PHYDM_DBG(dm, DBG_RA, "FW Level: Fix rate[%d]:", macid);
 			/**/

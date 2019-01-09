@@ -2734,6 +2734,11 @@ void rtw_iface_dynamic_chk_wk_hdl(_adapter *padapter)
 	#endif /* !RTW_BEAMFORMING_VERSION_2 */
 	#endif
 
+#ifdef CONFIG_RTW_CFGVEDNOR_RSSIMONITOR
+        rtw_cfgvendor_rssi_monitor_evt(padapter);
+#endif
+
+
 }
 void rtw_dynamic_chk_wk_hdl(_adapter *padapter)
 {

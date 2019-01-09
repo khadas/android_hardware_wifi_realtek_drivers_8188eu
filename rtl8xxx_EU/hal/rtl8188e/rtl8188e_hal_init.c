@@ -1404,7 +1404,7 @@ ReadEFuseByIC(
 #endif
 
 #ifdef CONFIG_IOL_READ_EFUSE_MAP
-	if (!bPseudoTest) { /* && rtw_IOL_applied(Adapter)) */
+	if (!bPseudoTest && Adapter->registrypriv.mp_mode == 0) { /* && rtw_IOL_applied(Adapter)) */
 		int ret = _FAIL;
 		if (rtw_IOL_applied(Adapter)) {
 			rtw_hal_power_on(Adapter);
