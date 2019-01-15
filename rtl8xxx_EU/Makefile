@@ -1847,10 +1847,10 @@ EXTRA_CFLAGS += -DRTW_USE_CFG80211_STA_EVENT
 # default setting for Android 5.x and later
 EXTRA_CFLAGS += -DCONFIG_RADIO_WORK
 
-ifeq ($(CONFIG_SDIO_HCI), y)
+#ifeq ($(CONFIG_SDIO_HCI), y)
 EXTRA_CFLAGS += -DCONFIG_PLATFORM_OPS
 _PLATFORM_FILES += platform/platform_aml_s905_sdio.o
-endif
+#endif
 
 ARCH ?= arm64
 CROSS_COMPILE ?= /4.4_S905L_8822bs_compile/gcc-linaro-aarch64-linux-gnu-4.9-2014.09_linux/bin/aarch64-linux-gnu-
